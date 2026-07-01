@@ -135,8 +135,8 @@
   .chart-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--sub); padding:2px 6px 4px; }
   .rec-weather { padding:13px 16px; border-top:1px solid var(--line); }
   .rec-weather .rwl { font-weight:600; font-size:15px; margin-bottom:10px; }
-  .weather-pick { display:flex; gap:6px; flex-wrap:wrap; }
-  .weather-pick button { flex:1; min-width:38px; aspect-ratio:1; border:1px solid #e5e7eb; border-radius:12px; background:var(--bg); font-size:22px; }
+  .weather-pick { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .weather-pick button { aspect-ratio:1; border:1px solid #e5e7eb; border-radius:12px; background:var(--bg); font-size:24px; }
   .weather-pick button.sel { border-color:var(--green); background:#dcfce7; }
   .wea-cell small { position:absolute; top:4px; left:6px; font-size:9px; color:var(--sub); }
   .wea-cell .we { font-size:19px; }
