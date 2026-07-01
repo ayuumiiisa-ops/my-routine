@@ -156,8 +156,14 @@
   .exp-bulk textarea { width:100%; box-sizing:border-box; min-height:96px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:14px; font-family:inherit; margin-top:8px; }
   .exp-bulk-note { font-size:11px; color:var(--sub); margin:6px 2px 8px; line-height:1.5; }
   .exp-bulk .bulk-add { background:var(--green); color:#fff; border:none; border-radius:10px; padding:11px; font-weight:700; width:100%; }
-  .exp-day { font-size:12px; color:var(--sub); font-weight:700; padding:12px 4px 6px; display:flex; justify-content:space-between; }
-  .exp-item { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow); margin-bottom:6px; }
+  .exp-group { background:var(--card); border-radius:14px; box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; }
+  .exp-group-head { display:flex; align-items:center; gap:8px; padding:11px 14px; background:#f0fdf4; border-bottom:1px solid var(--line); }
+  .exp-group-head .gs { flex:1; font-weight:800; font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .exp-group-head .gd { font-size:11px; color:var(--sub); flex:0 0 auto; }
+  .exp-group-head .gt { font-weight:800; color:var(--green-d); flex:0 0 auto; }
+  .exp-group-head .gdel { background:none; border:none; color:#c7ccca; font-size:15px; flex:0 0 auto; padding:0 2px; }
+  .exp-item { display:flex; align-items:center; gap:10px; padding:11px 14px; border-top:1px solid var(--line); }
+  .exp-item:first-child { border-top:none; }
   .exp-item .en { flex:1; font-weight:600; font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .exp-item .ea { font-weight:700; flex:0 0 auto; }
   .exp-item .edel { background:none; border:none; color:var(--sub); font-size:16px; flex:0 0 auto; }
@@ -863,28 +869,51 @@ function renderExpense() {
     list.innerHTML = `<div class="empty">この月の記録はまだありません。<br>上の欄から追加してね。</div>`;
     return;
   }
-  // 日付ごとにまとめて新しい順
-  const byDate = {};
-  all.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
-  const dates = Object.keys(byDate).sort().reverse();
-  list.innerHTML = dates.map(d => {
-    const items = byDate[d];
-    const sub = items.reduce((s,e)=>s+e.amount,0);
-    const dt = dateFromKey(d);
-    const head = `<div class="exp-day"><span>${dt.getMonth()+1}/${dt.getDate()} (${DOW[dt.getDay()]})</span><span>${yen(sub)}</span></div>`;
-    const rows = items.map(e => `
+  // レシート(group)ごと・手入力は日付ごとにまとめる
+  const groups = {};   // group id -> {store, date, group, items}
+  const byDate = {};   // 手入力(group無し)を日付でまとめる
+  all.forEach(e => {
+    if (e.group) {
+      (groups[e.group] = groups[e.group] || {store:e.store||'レシート', date:e.date, group:e.group, items:[]}).items.push(e);
+    } else {
+      (byDate[e.date] = byDate[e.date] || {store:'手入力', date:e.date, group:'', items:[]}).items.push(e);
+    }
+  });
+  const cards = [...Object.values(groups), ...Object.values(byDate)];
+  cards.forEach(c => c.subtotal = c.items.reduce((s,e)=>s+e.amount,0));
+  // 日付の新しい順、同日なら group 生成が新しい順
+  cards.sort((a,b) => a.date < b.date ? 1 : a.date > b.date ? -1 : ((a.group||'') < (b.group||'') ? 1 : -1));
+
+  list.innerHTML = cards.map(c => {
+    const dt = dateFromKey(c.date);
+    const dlabel = `${dt.getMonth()+1}/${dt.getDate()} (${DOW[dt.getDay()]})`;
+    const delBtn = c.group ? `<button class="gdel" data-delgroup="${c.group}">✕</button>` : '';
+    const rows = c.items.map(e => `
       <div class="exp-item" data-id="${e.id}">
         <span class="en">${escapeHtml(e.name)}</span>
         <span class="ea">${yen(e.amount)}</span>
         <button class="edel" data-del="${e.id}">✕</button>
       </div>`).join('');
-    return head + rows;
+    return `<div class="exp-group">
+      <div class="exp-group-head">
+        <span class="gs">${escapeHtml(c.store)}</span>
+        <span class="gd">${dlabel}</span>
+        <span class="gt">${yen(c.subtotal)}</span>
+        ${delBtn}
+      </div>
+      ${rows}
+    </div>`;
   }).join('');
 }
 function addExpense(date, name, amount) {
   const exp = DB.expenses();
   exp.push({ id:'e'+Date.now()+Math.floor(performance.now()), date, name: name||'食費', amount });
   DB.saveExpenses(exp);
+}
+function delGroup(group) {
+  if (!confirm('このレシートをまるごと削除する？')) return;
+  DB.saveExpenses(DB.expenses().filter(e => e.group !== group));
+  renderExpense();
 }
 function submitExpense() {
   const date = document.getElementById('exp-date').value || todayKey();
@@ -896,20 +925,27 @@ function submitExpense() {
   document.getElementById('exp-amount').value = '';
   renderExpense();
 }
-// 「内容 金額」の複数行を一括追加（レシート貼り付け用）
+// 「内容 金額」の複数行を一括追加（レシート1枚＝1グループ）
 function bulkAddExpense() {
   const date = document.getElementById('exp-date').value || todayKey();
   const text = document.getElementById('exp-bulk-text').value;
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  let added = 0;
+  let store = '';
+  const items = [];
   lines.forEach(line => {
     const mt = line.match(/^(.*?)[\s　]*[¥￥]?(\d[\d,]*)\s*円?$/);
-    if (!mt) return;
+    if (!mt) { if (!store) store = line; return; } // 数字の無い最初の行＝店名
     const amt = Number(mt[2].replace(/,/g,''));
     const name = mt[1].trim() || '食費';
-    if (amt > 0) { addExpense(date, name, amt); added++; }
+    if (amt > 0) items.push({ name, amt });
   });
-  if (added === 0) { alert('「内容 金額」の形式で入力してね（例：牛乳 258）'); return; }
+  if (items.length === 0) { alert('「内容 金額」の形式で入力してね（例：牛乳 258）'); return; }
+  const group = 'g'+Date.now()+Math.floor(performance.now());
+  const exp = DB.expenses();
+  items.forEach((it, i) => exp.push({
+    id:'e'+Date.now()+i, date, name: it.name, amount: it.amt, store: store||'レシート', group
+  }));
+  DB.saveExpenses(exp);
   document.getElementById('exp-bulk-text').value = '';
   document.getElementById('exp-bulk').style.display = 'none';
   renderExpense();
@@ -989,6 +1025,8 @@ document.getElementById('exp-bulk-toggle').onclick = () => {
   b.style.display = b.style.display === 'none' ? 'block' : 'none';
 };
 document.getElementById('exp-list').onclick = e => {
+  const dg = e.target.closest('[data-delgroup]');
+  if (dg) { delGroup(dg.dataset.delgroup); return; }
   const del = e.target.closest('[data-del]');
   if (del) delExpense(del.dataset.del);
 };
