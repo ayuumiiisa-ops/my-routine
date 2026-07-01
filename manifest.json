@@ -1,0 +1,16 @@
+{
+  "name": "マイルーティン",
+  "short_name": "ルーティン",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
