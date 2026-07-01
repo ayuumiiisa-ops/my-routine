@@ -110,6 +110,20 @@
   .chip .cp { flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:#1f2937; color:#fff; font-size:15px; display:flex; align-items:center; justify-content:center; }
   .chip.added .cp { background:var(--green); }
 
+  /* record */
+  .rec-date-row { display:flex; align-items:center; gap:10px; padding:14px 16px 6px; }
+  .rec-date-row label { font-size:12px; color:var(--sub); font-weight:700; }
+  .rec-date-row input { border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; font-size:15px; font-family:inherit; }
+  .rec-row { display:flex; align-items:center; gap:12px; padding:13px 16px; border-top:1px solid var(--line); }
+  .rec-row .re { font-size:22px; width:28px; text-align:center; }
+  .rec-row .rl { flex:1; font-weight:600; font-size:15px; }
+  .rec-row input { border:1px solid #e5e7eb; border-radius:10px; padding:9px 10px; font-size:16px; font-family:inherit; width:110px; text-align:center; }
+  .rec-row .unit { color:var(--sub); font-size:13px; width:22px; }
+  .chart-card { padding:14px 12px 8px; }
+  .chart-card svg { width:100%; height:auto; display:block; }
+  .chart-empty { color:var(--sub); font-size:13px; text-align:center; padding:26px 10px; }
+  .chart-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--sub); padding:2px 6px 4px; }
+
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
   .nav button { flex: 1; background: none; border: none; padding: 9px 0 7px; color: var(--sub); font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -167,6 +181,28 @@
   <div class="chip-wrap" id="todo-presets"></div>
 </section>
 
+<!-- 記録 -->
+<section id="record" class="screen">
+  <div class="h1">記録</div>
+  <div class="sub">起床・就寝・体重を記録して推移をグラフで見る</div>
+  <div class="card">
+    <div class="rec-date-row">
+      <label>記録する日</label>
+      <input type="date" id="rec-date" />
+    </div>
+    <div class="rec-row"><span class="re">🌅</span><span class="rl">起床時間</span><input type="time" id="rec-wake" /></div>
+    <div class="rec-row"><span class="re">🌙</span><span class="rl">就寝時間</span><input type="time" id="rec-sleep" /></div>
+    <div class="rec-row"><span class="re">⚖️</span><span class="rl">体重</span><input type="number" id="rec-weight" step="0.1" min="0" inputmode="decimal" placeholder="52.5" /><span class="unit">kg</span></div>
+  </div>
+  <button class="btn" id="rec-save">この日の記録を保存</button>
+  <div class="h2">⚖️ 体重の推移</div>
+  <div class="card chart-card" id="chart-weight"></div>
+  <div class="h2">🌅 起床時間の推移</div>
+  <div class="card chart-card" id="chart-wake"></div>
+  <div class="h2">🌙 就寝時間の推移</div>
+  <div class="card chart-card" id="chart-sleep"></div>
+</section>
+
 <!-- カレンダー -->
 <section id="calendar" class="screen">
   <div class="h1">カレンダー</div>
@@ -203,6 +239,7 @@
 <nav class="nav">
   <button data-t="today" class="active"><span class="ic">📋</span>今日</button>
   <button data-t="todo"><span class="ic">📝</span>ToDo</button>
+  <button data-t="record"><span class="ic">📈</span>記録</button>
   <button data-t="calendar"><span class="ic">📅</span>カレンダー</button>
   <button data-t="stats"><span class="ic">📊</span>統計</button>
   <button data-t="manage"><span class="ic">⚙️</span>習慣</button>
@@ -240,6 +277,8 @@ const DB = {
   saveChecks(c) { localStorage.setItem('mr_checks', JSON.stringify(c)); },
   todos() { return JSON.parse(localStorage.getItem('mr_todos') || '[]'); },
   saveTodos(t) { localStorage.setItem('mr_todos', JSON.stringify(t)); },
+  records() { return JSON.parse(localStorage.getItem('mr_records') || '{}'); },
+  saveRecords(r) { localStorage.setItem('mr_records', JSON.stringify(r)); },
 };
 
 /* ============ 日付ユーティリティ ============ */
@@ -522,14 +561,96 @@ function delTodo(id) {
   renderTodo();
 }
 
+/* ============ 記録タブ ============ */
+// "HH:MM" -> 分。就寝時間は午前(0-12時)を翌日扱い(+1440)にして深夜跨ぎを連続表示
+function timeToMin(hhmm, shiftNight) {
+  if (!hhmm) return null;
+  const [h,m] = hhmm.split(':').map(Number);
+  let v = h*60 + m;
+  if (shiftNight && h < 12) v += 1440;
+  return v;
+}
+function minToTime(v) {
+  v = Math.round(v) % 1440; if (v<0) v += 1440;
+  return `${pad(Math.floor(v/60))}:${pad(v%60)}`;
+}
+function initRecDate() {
+  const el = document.getElementById('rec-date');
+  if (!el.value) el.value = todayKey();
+}
+function renderRecord() {
+  initRecDate();
+  const rec = DB.records();
+  const dk = document.getElementById('rec-date').value || todayKey();
+  const day = rec[dk] || {};
+  document.getElementById('rec-wake').value = day.wake || '';
+  document.getElementById('rec-sleep').value = day.sleep || '';
+  document.getElementById('rec-weight').value = (day.weight != null ? day.weight : '');
+
+  // 直近30件を日付順で
+  const dates = Object.keys(rec).sort();
+  const recent = dates.slice(-30);
+
+  const weightPts = recent.filter(d=>rec[d].weight!=null).map(d=>({date:d, v:Number(rec[d].weight), label:(Number(rec[d].weight)).toFixed(1)}));
+  const wakePts = recent.filter(d=>rec[d].wake).map(d=>({date:d, v:timeToMin(rec[d].wake,false), label:rec[d].wake}));
+  const sleepPts = recent.filter(d=>rec[d].sleep).map(d=>({date:d, v:timeToMin(rec[d].sleep,true), label:rec[d].sleep}));
+
+  document.getElementById('chart-weight').innerHTML = drawChart(weightPts, '#22c55e', v=>v.toFixed(1)+'kg');
+  document.getElementById('chart-wake').innerHTML = drawChart(wakePts, '#f59e0b', v=>minToTime(v));
+  document.getElementById('chart-sleep').innerHTML = drawChart(sleepPts, '#6366f1', v=>minToTime(v));
+}
+function saveRecord() {
+  const dk = document.getElementById('rec-date').value || todayKey();
+  const wake = document.getElementById('rec-wake').value;
+  const sleep = document.getElementById('rec-sleep').value;
+  const wRaw = document.getElementById('rec-weight').value;
+  const rec = DB.records();
+  const day = rec[dk] || {};
+  if (wake) day.wake = wake; else delete day.wake;
+  if (sleep) day.sleep = sleep; else delete day.sleep;
+  if (wRaw !== '') day.weight = Number(wRaw); else delete day.weight;
+  if (Object.keys(day).length) rec[dk] = day; else delete rec[dk];
+  DB.saveRecords(rec);
+  renderRecord();
+  const btn = document.getElementById('rec-save');
+  btn.textContent = '保存しました ✓';
+  setTimeout(()=>{ btn.textContent = 'この日の記録を保存'; }, 1200);
+}
+// 依存なしの折れ線グラフ（SVG）
+function drawChart(pts, color, fmt) {
+  if (pts.length === 0) return `<div class="chart-empty">まだ記録がありません。<br>上で入力して保存してね。</div>`;
+  const W=300, H=120, L=8, R=8, T=16, B=20;
+  let min = Math.min(...pts.map(p=>p.v)), max = Math.max(...pts.map(p=>p.v));
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max-min)*0.12; min -= pad; max += pad;
+  const n = pts.length;
+  const xOf = i => n===1 ? (L+(W-L-R)/2) : L + (W-L-R)*i/(n-1);
+  const yOf = v => T + (H-T-B)*(1-(v-min)/(max-min));
+  const coords = pts.map((p,i)=>[xOf(i), yOf(p.v)]);
+  const line = coords.map((c,i)=>`${i?'L':'M'}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
+  const area = `${line} L${coords[n-1][0].toFixed(1)},${H-B} L${coords[0][0].toFixed(1)},${H-B} Z`;
+  const dots = coords.map(c=>`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="2.6" fill="${color}"/>`).join('');
+  const first = pts[0], last = pts[n-1];
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
+      <path d="${area}" fill="${color}" opacity="0.10"/>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      <text x="${L}" y="11" font-size="9" fill="#9ca3af">${fmt(max-pad)}</text>
+      <text x="${L}" y="${H-6}" font-size="9" fill="#9ca3af">${fmt(min+pad)}</text>
+    </svg>
+    <div class="chart-meta"><span>${first.date.slice(5)}：${first.label}</span><span>最新 ${last.date.slice(5)}：${last.label}</span></div>`;
+}
+
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){ renderToday(); renderTodo(); renderCalendar(); renderStats(); renderManage(); }
+function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderCalendar(); renderStats(); renderManage(); }
 
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
   if (t==='todo') renderTodo();
+  if (t==='record') renderRecord();
   if (t==='calendar') renderCalendar();
   if (t==='stats') renderStats();
 }
@@ -569,6 +690,10 @@ function submitCustomTodo() {
 }
 document.getElementById('todo-add').onclick = submitCustomTodo;
 document.getElementById('todo-in').addEventListener('keydown', e => { if (e.key==='Enter') submitCustomTodo(); });
+
+// 記録イベント
+document.getElementById('rec-save').onclick = saveRecord;
+document.getElementById('rec-date').addEventListener('change', renderRecord);
 document.getElementById('modal-cancel').onclick = closeModal;
 document.getElementById('modal-save').onclick = saveModal;
 document.getElementById('modal-bg').onclick = e => { if (e.target.id==='modal-bg') closeModal(); };
