@@ -133,6 +133,13 @@
   .chart-card svg { width:100%; height:auto; display:block; }
   .chart-empty { color:var(--sub); font-size:13px; text-align:center; padding:26px 10px; }
   .chart-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--sub); padding:2px 6px 4px; }
+  .rec-weather { padding:13px 16px; border-top:1px solid var(--line); }
+  .rec-weather .rwl { font-weight:600; font-size:15px; margin-bottom:10px; }
+  .weather-pick { display:flex; gap:6px; flex-wrap:wrap; }
+  .weather-pick button { flex:1; min-width:38px; aspect-ratio:1; border:1px solid #e5e7eb; border-radius:12px; background:var(--bg); font-size:22px; }
+  .weather-pick button.sel { border-color:var(--green); background:#dcfce7; }
+  .wea-cell small { position:absolute; top:4px; left:6px; font-size:9px; color:var(--sub); }
+  .wea-cell .we { font-size:19px; }
 
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
@@ -212,8 +219,20 @@
     <div class="rec-row"><span class="re">🌅</span><span class="rl">起床時間</span><input type="time" id="rec-wake" /></div>
     <div class="rec-row"><span class="re">🌙</span><span class="rl">就寝時間</span><input type="time" id="rec-sleep" /></div>
     <div class="rec-row"><span class="re">⚖️</span><span class="rl">体重</span><input type="number" id="rec-weight" step="0.1" min="0" inputmode="decimal" placeholder="52.5" /><span class="unit">kg</span></div>
+    <div class="rec-weather">
+      <div class="rwl">🌤️ 天気</div>
+      <div class="weather-pick" id="weather-pick"></div>
+    </div>
   </div>
   <button class="btn" id="rec-save">この日の記録を保存</button>
+  <div class="h2">🗓️ 天気カレンダー</div>
+  <div class="cal-head">
+    <button class="cal-nav" id="wea-prev">‹</button>
+    <b id="wea-title"></b>
+    <button class="cal-nav" id="wea-next">›</button>
+  </div>
+  <div class="cal-grid" id="wea-dow"></div>
+  <div class="cal-grid" id="wea-grid" style="margin-top:6px;"></div>
   <div class="h2">⚖️ 体重の推移</div>
   <div class="card chart-card" id="chart-weight"></div>
   <div class="h2">🌅 起床時間の推移</div>
@@ -321,6 +340,9 @@ let editingId = null;
 let pickedEmoji = '✅';
 let pickedDays = [0,1,2,3,4,5,6];
 let todoCat = '生活';
+let pickedWeather = '';
+let weaView = new Date();
+const WEATHERS = ['☀️','🌤️','⛅','☁️','🌧️','⛈️','🌨️','🌫️'];
 
 const EVERY = [0,1,2,3,4,5,6];
 // その習慣が指定日に有効か（days 未設定＝毎日として後方互換）
@@ -688,6 +710,9 @@ function renderRecord() {
   document.getElementById('rec-wake').value = day.wake || '';
   document.getElementById('rec-sleep').value = day.sleep || '';
   document.getElementById('rec-weight').value = (day.weight != null ? day.weight : '');
+  pickedWeather = day.weather || '';
+  renderWeatherPick();
+  renderWeatherCal();
 
   // 直近30件を日付順で
   const dates = Object.keys(rec).sort();
@@ -711,12 +736,34 @@ function saveRecord() {
   if (wake) day.wake = wake; else delete day.wake;
   if (sleep) day.sleep = sleep; else delete day.sleep;
   if (wRaw !== '') day.weight = Number(wRaw); else delete day.weight;
+  if (pickedWeather) day.weather = pickedWeather; else delete day.weather;
   if (Object.keys(day).length) rec[dk] = day; else delete rec[dk];
   DB.saveRecords(rec);
   renderRecord();
   const btn = document.getElementById('rec-save');
   btn.textContent = '保存しました ✓';
   setTimeout(()=>{ btn.textContent = 'この日の記録を保存'; }, 1200);
+}
+function renderWeatherPick() {
+  document.getElementById('weather-pick').innerHTML =
+    WEATHERS.map(w => `<button data-w="${w}" class="${w===pickedWeather?'sel':''}">${w}</button>`).join('');
+}
+function renderWeatherCal() {
+  const y = weaView.getFullYear(), m = weaView.getMonth();
+  document.getElementById('wea-title').textContent = `${y}年${m+1}月`;
+  document.getElementById('wea-dow').innerHTML = DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const rec = DB.records();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const startDow = new Date(y, m, 1).getDay();
+  const tk = todayKey();
+  let cells = '';
+  for (let i=0;i<startDow;i++) cells += `<div class="cal-cell blank"></div>`;
+  for (let day=1; day<=daysInMonth; day++) {
+    const dk = `${y}-${pad(m+1)}-${pad(day)}`;
+    const w = (rec[dk]||{}).weather || '';
+    cells += `<div class="cal-cell wea-cell ${dk===tk?'today':''}"><small>${day}</small><span class="we">${w}</span></div>`;
+  }
+  document.getElementById('wea-grid').innerHTML = cells;
 }
 // 依存なしの折れ線グラフ（SVG）
 function drawChart(pts, color, fmt) {
@@ -796,6 +843,13 @@ document.getElementById('todo-in').addEventListener('keydown', e => { if (e.key=
 // 記録イベント
 document.getElementById('rec-save').onclick = saveRecord;
 document.getElementById('rec-date').addEventListener('change', renderRecord);
+document.getElementById('weather-pick').onclick = e => {
+  const b = e.target.closest('[data-w]'); if (!b) return;
+  pickedWeather = (pickedWeather === b.dataset.w) ? '' : b.dataset.w; // 同じのタップで解除
+  renderWeatherPick();
+};
+document.getElementById('wea-prev').onclick = ()=>{ weaView.setMonth(weaView.getMonth()-1); renderWeatherCal(); };
+document.getElementById('wea-next').onclick = ()=>{ weaView.setMonth(weaView.getMonth()+1); renderWeatherCal(); };
 document.getElementById('modal-cancel').onclick = closeModal;
 document.getElementById('modal-save').onclick = saveModal;
 document.getElementById('modal-bg').onclick = e => { if (e.target.id==='modal-bg') closeModal(); };
