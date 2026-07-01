@@ -141,10 +141,31 @@
   .wea-cell small { position:absolute; top:4px; left:6px; font-size:9px; color:var(--sub); }
   .wea-cell .we { font-size:19px; }
 
+  /* 食費 */
+  .exp-total { padding:16px; text-align:center; margin-bottom:14px; }
+  .exp-total .l { font-size:12px; color:var(--sub); }
+  .exp-total .n { font-size:30px; font-weight:800; margin-top:2px; }
+  .exp-add { padding:14px; margin-bottom:14px; }
+  .exp-add-row { margin-bottom:10px; }
+  .exp-add-row input { border:1px solid #e5e7eb; border-radius:10px; padding:9px 10px; font-size:15px; font-family:inherit; }
+  .exp-add-row2 { display:flex; gap:8px; }
+  .exp-add-row2 input[type=text]{ flex:1; min-width:0; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:16px; font-family:inherit; }
+  .exp-add-row2 input[type=number]{ width:88px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:16px; font-family:inherit; text-align:right; }
+  .exp-add-row2 button{ background:var(--green); color:#fff; border:none; border-radius:10px; padding:0 16px; font-weight:700; }
+  .exp-bulk-toggle { background:none; border:none; color:var(--green-d); font-weight:700; font-size:13px; padding:12px 2px 2px; }
+  .exp-bulk textarea { width:100%; box-sizing:border-box; min-height:96px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:14px; font-family:inherit; margin-top:8px; }
+  .exp-bulk-note { font-size:11px; color:var(--sub); margin:6px 2px 8px; line-height:1.5; }
+  .exp-bulk .bulk-add { background:var(--green); color:#fff; border:none; border-radius:10px; padding:11px; font-weight:700; width:100%; }
+  .exp-day { font-size:12px; color:var(--sub); font-weight:700; padding:12px 4px 6px; display:flex; justify-content:space-between; }
+  .exp-item { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow); margin-bottom:6px; }
+  .exp-item .en { flex:1; font-weight:600; font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .exp-item .ea { font-weight:700; flex:0 0 auto; }
+  .exp-item .edel { background:none; border:none; color:var(--sub); font-size:16px; flex:0 0 auto; }
+
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
-  .nav button { flex: 1; background: none; border: none; padding: 9px 0 7px; color: var(--sub); font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .nav button .ic { font-size: 21px; line-height:1; }
+  .nav button { flex: 1; background: none; border: none; padding: 8px 0 6px; color: var(--sub); font-size: 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav button .ic { font-size: 19px; line-height:1; }
   .nav button.active { color: var(--green); font-weight: 700; }
 
   /* modal */
@@ -241,6 +262,33 @@
   <div class="card chart-card" id="chart-sleep"></div>
 </section>
 
+<!-- 食費 -->
+<section id="expense" class="screen">
+  <div class="h1">食費</div>
+  <div class="sub">日々の食費を記録して月の合計を見る</div>
+  <div class="cal-head">
+    <button class="cal-nav" id="exp-prev">‹</button>
+    <b id="exp-title"></b>
+    <button class="cal-nav" id="exp-next">›</button>
+  </div>
+  <div class="card exp-total"><div class="l">この月の食費合計</div><div class="n" id="exp-total-n">¥0</div></div>
+  <div class="card exp-add">
+    <div class="exp-add-row"><input type="date" id="exp-date" /></div>
+    <div class="exp-add-row2">
+      <input type="text" id="exp-name" placeholder="内容（例：スーパー）" maxlength="40" />
+      <input type="number" id="exp-amount" placeholder="金額" min="0" inputmode="numeric" />
+      <button id="exp-add">追加</button>
+    </div>
+    <button class="exp-bulk-toggle" id="exp-bulk-toggle">🧾 レシートからまとめて追加 ▾</button>
+    <div class="exp-bulk" id="exp-bulk" style="display:none;">
+      <textarea id="exp-bulk-text" placeholder="1行に1品「内容 金額」で貼り付け。例：&#10;牛乳 258&#10;卵 198&#10;パン 150"></textarea>
+      <div class="exp-bulk-note">※レシート写真をDiscordのくろちゃんに送ると、この形式で返すよ。貼り付けて一括追加。日付は上の「記録する日」が使われる。</div>
+      <button class="bulk-add" id="exp-bulk-add">この内容をまとめて追加</button>
+    </div>
+  </div>
+  <div id="exp-list"></div>
+</section>
+
 <!-- カレンダー -->
 <section id="calendar" class="screen">
   <div class="h1">カレンダー</div>
@@ -278,6 +326,7 @@
   <button data-t="today" class="active"><span class="ic">📋</span>今日</button>
   <button data-t="todo"><span class="ic">📝</span>ToDo</button>
   <button data-t="record"><span class="ic">📈</span>記録</button>
+  <button data-t="expense"><span class="ic">🧾</span>食費</button>
   <button data-t="calendar"><span class="ic">📅</span>カレンダー</button>
   <button data-t="stats"><span class="ic">📊</span>統計</button>
   <button data-t="manage"><span class="ic">⚙️</span>習慣</button>
@@ -326,6 +375,8 @@ const DB = {
   saveTodos(t) { localStorage.setItem('mr_todos', JSON.stringify(t)); },
   records() { return JSON.parse(localStorage.getItem('mr_records') || '{}'); },
   saveRecords(r) { localStorage.setItem('mr_records', JSON.stringify(r)); },
+  expenses() { return JSON.parse(localStorage.getItem('mr_expenses') || '[]'); },
+  saveExpenses(e) { localStorage.setItem('mr_expenses', JSON.stringify(e)); },
 };
 
 /* ============ 日付ユーティリティ ============ */
@@ -342,6 +393,7 @@ let pickedDays = [0,1,2,3,4,5,6];
 let todoCat = '生活';
 let pickedWeather = '';
 let weaView = new Date();
+let expView = new Date();
 const WEATHERS = ['☀️','🌤️','⛅','☁️','🌧️','⛈️','🌨️','🌫️'];
 
 const EVERY = [0,1,2,3,4,5,6];
@@ -791,15 +843,92 @@ function drawChart(pts, color, fmt) {
     <div class="chart-meta"><span>${first.date.slice(5)}：${first.label}</span><span>最新 ${last.date.slice(5)}：${last.label}</span></div>`;
 }
 
+/* ============ 食費タブ ============ */
+const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+function initExpDate() {
+  const el = document.getElementById('exp-date');
+  if (!el.value) el.value = todayKey();
+}
+function renderExpense() {
+  initExpDate();
+  const y = expView.getFullYear(), m = expView.getMonth();
+  document.getElementById('exp-title').textContent = `${y}年${m+1}月`;
+  const prefix = `${y}-${pad(m+1)}`;
+  const all = DB.expenses().filter(e => e.date.startsWith(prefix));
+  const total = all.reduce((s,e)=>s+e.amount, 0);
+  document.getElementById('exp-total-n').textContent = yen(total);
+
+  const list = document.getElementById('exp-list');
+  if (all.length === 0) {
+    list.innerHTML = `<div class="empty">この月の記録はまだありません。<br>上の欄から追加してね。</div>`;
+    return;
+  }
+  // 日付ごとにまとめて新しい順
+  const byDate = {};
+  all.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const dates = Object.keys(byDate).sort().reverse();
+  list.innerHTML = dates.map(d => {
+    const items = byDate[d];
+    const sub = items.reduce((s,e)=>s+e.amount,0);
+    const dt = dateFromKey(d);
+    const head = `<div class="exp-day"><span>${dt.getMonth()+1}/${dt.getDate()} (${DOW[dt.getDay()]})</span><span>${yen(sub)}</span></div>`;
+    const rows = items.map(e => `
+      <div class="exp-item" data-id="${e.id}">
+        <span class="en">${escapeHtml(e.name)}</span>
+        <span class="ea">${yen(e.amount)}</span>
+        <button class="edel" data-del="${e.id}">✕</button>
+      </div>`).join('');
+    return head + rows;
+  }).join('');
+}
+function addExpense(date, name, amount) {
+  const exp = DB.expenses();
+  exp.push({ id:'e'+Date.now()+Math.floor(performance.now()), date, name: name||'食費', amount });
+  DB.saveExpenses(exp);
+}
+function submitExpense() {
+  const date = document.getElementById('exp-date').value || todayKey();
+  const name = document.getElementById('exp-name').value.trim();
+  const amt = Number(document.getElementById('exp-amount').value);
+  if (!amt || amt <= 0) { document.getElementById('exp-amount').focus(); return; }
+  addExpense(date, name, amt);
+  document.getElementById('exp-name').value = '';
+  document.getElementById('exp-amount').value = '';
+  renderExpense();
+}
+// 「内容 金額」の複数行を一括追加（レシート貼り付け用）
+function bulkAddExpense() {
+  const date = document.getElementById('exp-date').value || todayKey();
+  const text = document.getElementById('exp-bulk-text').value;
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let added = 0;
+  lines.forEach(line => {
+    const mt = line.match(/^(.*?)[\s　]*[¥￥]?(\d[\d,]*)\s*円?$/);
+    if (!mt) return;
+    const amt = Number(mt[2].replace(/,/g,''));
+    const name = mt[1].trim() || '食費';
+    if (amt > 0) { addExpense(date, name, amt); added++; }
+  });
+  if (added === 0) { alert('「内容 金額」の形式で入力してね（例：牛乳 258）'); return; }
+  document.getElementById('exp-bulk-text').value = '';
+  document.getElementById('exp-bulk').style.display = 'none';
+  renderExpense();
+}
+function delExpense(id) {
+  DB.saveExpenses(DB.expenses().filter(e=>e.id!==id));
+  renderExpense();
+}
+
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderCalendar(); renderStats(); renderManage(); }
+function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
 
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
   if (t==='todo') renderTodo();
   if (t==='record') renderRecord();
+  if (t==='expense') renderExpense();
   if (t==='calendar') renderCalendar();
   if (t==='stats') renderStats();
 }
@@ -850,6 +979,21 @@ document.getElementById('weather-pick').onclick = e => {
 };
 document.getElementById('wea-prev').onclick = ()=>{ weaView.setMonth(weaView.getMonth()-1); renderWeatherCal(); };
 document.getElementById('wea-next').onclick = ()=>{ weaView.setMonth(weaView.getMonth()+1); renderWeatherCal(); };
+
+// 食費イベント
+document.getElementById('exp-add').onclick = submitExpense;
+document.getElementById('exp-amount').addEventListener('keydown', e => { if (e.key==='Enter') submitExpense(); });
+document.getElementById('exp-bulk-add').onclick = bulkAddExpense;
+document.getElementById('exp-bulk-toggle').onclick = () => {
+  const b = document.getElementById('exp-bulk');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+};
+document.getElementById('exp-list').onclick = e => {
+  const del = e.target.closest('[data-del]');
+  if (del) delExpense(del.dataset.del);
+};
+document.getElementById('exp-prev').onclick = ()=>{ expView.setMonth(expView.getMonth()-1); renderExpense(); };
+document.getElementById('exp-next').onclick = ()=>{ expView.setMonth(expView.getMonth()+1); renderExpense(); };
 document.getElementById('modal-cancel').onclick = closeModal;
 document.getElementById('modal-save').onclick = saveModal;
 document.getElementById('modal-bg').onclick = e => { if (e.target.id==='modal-bg') closeModal(); };
