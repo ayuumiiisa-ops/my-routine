@@ -88,6 +88,28 @@
   .btn:active { background:var(--green-d); }
   .del { background:none; border:none; color:#ef4444; font-size:13px; padding:6px 8px; }
 
+  /* todo */
+  .h2 { font-size: 15px; font-weight: 800; margin: 22px 2px 10px; }
+  .todo-add-row { display:flex; gap:8px; margin-bottom:14px; }
+  .todo-add-row input { flex:1; border:1px solid #e5e7eb; border-radius:12px; padding:12px; font-size:16px; font-family:inherit; background:var(--card); }
+  .todo-add-row button { background:var(--green); color:#fff; border:none; border-radius:12px; padding:0 18px; font-weight:700; font-size:14px; }
+  .todo-item { display:flex; align-items:center; gap:12px; padding:13px 16px; border-top:1px solid var(--line); }
+  .todo-item:first-child { border-top:none; }
+  .todo-item .emoji { font-size:22px; width:28px; text-align:center; }
+  .todo-item .tx { flex:1; font-size:15px; font-weight:600; }
+  .todo-item.done .tx { color:var(--sub); text-decoration:line-through; }
+  .todo-item .carry { font-size:10px; color:#f59e0b; background:#fef3c7; padding:2px 7px; border-radius:8px; font-weight:700; }
+  .todo-item .del { color:var(--sub); }
+  .cat-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; -webkit-overflow-scrolling:touch; }
+  .cat-tabs button { flex:0 0 auto; background:var(--card); border:none; border-radius:20px; padding:8px 16px; font-size:13px; font-weight:700; color:var(--sub); box-shadow:var(--shadow); }
+  .cat-tabs button.active { background:#1f2937; color:#fff; }
+  .chip-wrap { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .chip { display:flex; align-items:center; gap:8px; background:var(--card); border:none; border-radius:24px; padding:11px 12px; box-shadow:var(--shadow); text-align:left; }
+  .chip .ce { font-size:18px; flex:0 0 auto; }
+  .chip .ct { flex:1; font-size:13px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip .cp { flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:#1f2937; color:#fff; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .chip.added .cp { background:var(--green); }
+
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
   .nav button { flex: 1; background: none; border: none; padding: 9px 0 7px; color: var(--sub); font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -131,6 +153,20 @@
   <div id="today-list"></div>
 </section>
 
+<!-- ToDo -->
+<section id="todo" class="screen">
+  <div class="h1">ToDo</div>
+  <div class="sub">今日だけの1回限りタスク（できるまで翌日に繰り越し）</div>
+  <div class="todo-add-row">
+    <input type="text" id="todo-in" placeholder="自分のToDoを追加" maxlength="40" />
+    <button id="todo-add">追加</button>
+  </div>
+  <div class="card" id="todo-list"></div>
+  <div class="h2">🔥 人気のToDoから追加</div>
+  <div class="cat-tabs" id="todo-cats"></div>
+  <div class="chip-wrap" id="todo-presets"></div>
+</section>
+
 <!-- カレンダー -->
 <section id="calendar" class="screen">
   <div class="h1">カレンダー</div>
@@ -166,6 +202,7 @@
 <!-- nav -->
 <nav class="nav">
   <button data-t="today" class="active"><span class="ic">📋</span>今日</button>
+  <button data-t="todo"><span class="ic">📝</span>ToDo</button>
   <button data-t="calendar"><span class="ic">📅</span>カレンダー</button>
   <button data-t="stats"><span class="ic">📊</span>統計</button>
   <button data-t="manage"><span class="ic">⚙️</span>習慣</button>
@@ -201,6 +238,8 @@ const DB = {
   saveRoutines(r) { localStorage.setItem('mr_routines', JSON.stringify(r)); },
   checks() { return JSON.parse(localStorage.getItem('mr_checks') || '{}'); },
   saveChecks(c) { localStorage.setItem('mr_checks', JSON.stringify(c)); },
+  todos() { return JSON.parse(localStorage.getItem('mr_todos') || '[]'); },
+  saveTodos(t) { localStorage.setItem('mr_todos', JSON.stringify(t)); },
 };
 
 /* ============ 日付ユーティリティ ============ */
@@ -213,6 +252,15 @@ function todayKey() { return keyOf(new Date()); }
 let calView = new Date(); // カレンダーで表示中の月
 let editingId = null;
 let pickedEmoji = '✅';
+let todoCat = '生活';
+
+/* 人気のToDo プリセット（マイルーティン参考） */
+const TODO_PRESETS = {
+  '生活': [['🧺','洗濯'],['🍽️','皿洗い'],['☀️','布団を干す'],['🛒','買い物'],['🚽','トイレ掃除'],['🧹','大掃除'],['🗑️','ゴミ捨て'],['♻️','ゴミの分別'],['🧊','冷蔵庫の整理']],
+  'セルフケア': [['✂️','眉毛を整える'],['💅','爪切り'],['🧖','パックをする'],['🥗','1週間の食事計画'],['🛏️','寝具の洗濯'],['🪒','脱毛'],['🧴','床の整理'],['👗','着ない服を捨てる'],['💄','メイクの練習']],
+  'リラックス': [['🕯️','キャンドルを焚く'],['🛁','半身浴'],['🎬','好きな映画を見る'],['☕','カフェで読書'],['🪴','観葉植物を買う'],['📝','今の気分を整理する'],['💆','アロママッサージ'],['🚶','散歩する'],['🧠','悩みを一つ書く']],
+  '勉強・仕事': [['📋','やることの整理'],['🗂️','机の整理整頓'],['📁','ポートフォリオ整理'],['✍️','集中できない理由を書く'],['🎯','今週の目標を書く'],['📚','勉強の計画を立てる'],['📵','邪魔なものを片付ける'],['🗒️','今日学んだことを書く'],['🎒','バッグを整理する']]
+};
 
 /* ============ 今日タブ ============ */
 function renderToday() {
@@ -414,13 +462,74 @@ function delRoutine(id) {
   renderAll();
 }
 
+/* ============ ToDoタブ ============ */
+function visibleTodos() {
+  const tk = todayKey();
+  // 未完了は全部（＝繰り越し）＋ 今日完了したものだけ表示。過去に完了したものは消える
+  return DB.todos().filter(t => !t.done || t.doneDate === tk);
+}
+function renderTodo() {
+  const tk = todayKey();
+  const todos = visibleTodos();
+  const list = document.getElementById('todo-list');
+  if (todos.length === 0) {
+    list.innerHTML = `<div class="empty">今日のToDoはまだありません。<br>下の「人気のToDo」から足せるよ。</div>`;
+  } else {
+    // 未完了を上、完了を下に
+    const sorted = [...todos].sort((a,b)=> (a.done?1:0)-(b.done?1:0));
+    list.innerHTML = sorted.map(t => `
+      <div class="todo-item ${t.done?'done':''}" data-id="${t.id}">
+        <div class="check ${t.done?'':''}" style="${t.done?'background:var(--green);border-color:var(--green);':''}">${t.done?'✓':''}</div>
+        <div class="emoji">${t.emoji||'📝'}</div>
+        <div class="tx">${escapeHtml(t.text)}</div>
+        ${(!t.done && t.created && t.created < tk) ? '<span class="carry">繰り越し</span>' : ''}
+        <button class="del" data-del="${t.id}">✕</button>
+      </div>`).join('');
+  }
+  renderTodoPresets();
+}
+function renderTodoPresets() {
+  const cats = Object.keys(TODO_PRESETS);
+  document.getElementById('todo-cats').innerHTML =
+    cats.map(c => `<button class="${c===todoCat?'active':''}" data-cat="${c}">${c}</button>`).join('');
+  // すでに今日追加済みのテキスト
+  const tk = todayKey();
+  const addedTexts = new Set(DB.todos().filter(t=>t.created===tk).map(t=>t.text));
+  document.getElementById('todo-presets').innerHTML =
+    TODO_PRESETS[todoCat].map(([e,t]) => `
+      <button class="chip ${addedTexts.has(t)?'added':''}" data-e="${e}" data-tx="${escapeHtml(t)}">
+        <span class="ce">${e}</span>
+        <span class="ct">${escapeHtml(t)}</span>
+        <span class="cp">${addedTexts.has(t)?'✓':'＋'}</span>
+      </button>`).join('');
+}
+function addTodo(emoji, text) {
+  const todos = DB.todos();
+  todos.push({ id:'t'+Date.now()+Math.floor(performance.now()), emoji, text, done:false, created: todayKey() });
+  DB.saveTodos(todos);
+  renderTodo();
+}
+function toggleTodo(id) {
+  const todos = DB.todos();
+  const t = todos.find(x=>x.id===id); if (!t) return;
+  t.done = !t.done;
+  t.doneDate = t.done ? todayKey() : null;
+  DB.saveTodos(todos);
+  renderTodo();
+}
+function delTodo(id) {
+  DB.saveTodos(DB.todos().filter(t=>t.id!==id));
+  renderTodo();
+}
+
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){ renderToday(); renderCalendar(); renderStats(); renderManage(); }
+function renderAll(){ renderToday(); renderTodo(); renderCalendar(); renderStats(); renderManage(); }
 
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
+  if (t==='todo') renderTodo();
   if (t==='calendar') renderCalendar();
   if (t==='stats') renderStats();
 }
@@ -437,6 +546,29 @@ document.getElementById('manage-list').onclick = e => {
   if (edit) openModal(edit.dataset.edit);
 };
 document.getElementById('add-btn').onclick = ()=>openModal();
+
+// ToDo イベント
+document.getElementById('todo-list').onclick = e => {
+  const del = e.target.closest('[data-del]');
+  if (del) { delTodo(del.dataset.del); return; }
+  const item = e.target.closest('.todo-item');
+  if (item) toggleTodo(item.dataset.id);
+};
+document.getElementById('todo-cats').onclick = e => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  todoCat = b.dataset.cat; renderTodoPresets();
+};
+document.getElementById('todo-presets').onclick = e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  addTodo(b.dataset.e, b.dataset.tx);
+};
+function submitCustomTodo() {
+  const inp = document.getElementById('todo-in');
+  const v = inp.value.trim(); if (!v) return;
+  addTodo('📝', v); inp.value = '';
+}
+document.getElementById('todo-add').onclick = submitCustomTodo;
+document.getElementById('todo-in').addEventListener('keydown', e => { if (e.key==='Enter') submitCustomTodo(); });
 document.getElementById('modal-cancel').onclick = closeModal;
 document.getElementById('modal-save').onclick = saveModal;
 document.getElementById('modal-bg').onclick = e => { if (e.target.id==='modal-bg') closeModal(); };
