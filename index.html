@@ -141,6 +141,11 @@
   .emoji-pick { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; max-height: 132px; overflow-y: auto; }
   .emoji-pick button { font-size: 22px; padding: 6px 0; border: 1px solid transparent; border-radius: 10px; background: var(--bg); }
   .emoji-pick button.sel { border-color: var(--green); background: #dcfce7; }
+  .dow-pick { display:flex; gap:6px; }
+  .dow-pick button { flex:1; aspect-ratio:1; border:1px solid #e5e7eb; border-radius:50%; background:var(--bg); font-size:13px; font-weight:700; color:var(--sub); }
+  .dow-pick button.sel { background:var(--green); border-color:var(--green); color:#fff; }
+  .dow-quick { display:flex; gap:8px; margin-top:8px; }
+  .dow-quick button { background:var(--bg); border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; color:var(--ink); }
   .modal-actions { display:flex; gap:10px; margin-top:6px; }
   .modal-actions .btn.ghost { background:var(--bg); color:var(--ink); }
 </style>
@@ -230,7 +235,7 @@
 <!-- 習慣管理 -->
 <section id="manage" class="screen">
   <div class="h1">習慣の管理</div>
-  <div class="sub">登録した習慣が毎日のリストに出るよ</div>
+  <div class="sub">習慣は設定した曜日だけ「今日」のリストに出るよ</div>
   <div class="card" id="manage-list"></div>
   <button class="btn" id="add-btn">＋ 習慣を追加</button>
 </section>
@@ -260,6 +265,15 @@
     <div class="field">
       <label>時間（任意）</label>
       <input type="time" id="in-time" />
+    </div>
+    <div class="field">
+      <label>繰り返す曜日</label>
+      <div class="dow-pick" id="dow-pick"></div>
+      <div class="dow-quick">
+        <button id="dow-all" type="button">毎日</button>
+        <button id="dow-weekday" type="button">平日</button>
+        <button id="dow-weekend" type="button">土日</button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="modal-cancel">キャンセル</button>
@@ -291,7 +305,22 @@ function todayKey() { return keyOf(new Date()); }
 let calView = new Date(); // カレンダーで表示中の月
 let editingId = null;
 let pickedEmoji = '✅';
+let pickedDays = [0,1,2,3,4,5,6];
 let todoCat = '生活';
+
+const EVERY = [0,1,2,3,4,5,6];
+// その習慣が指定日に有効か（days 未設定＝毎日として後方互換）
+function activeOn(r, dateObj) {
+  const days = r.days;
+  if (!days || days.length === 0 || days.length === 7) return true;
+  return days.includes(dateObj.getDay());
+}
+function daysLabel(days) {
+  if (!days || days.length === 0 || days.length === 7) return '毎日';
+  if (days.length === 5 && [1,2,3,4,5].every(d=>days.includes(d))) return '平日';
+  if (days.length === 2 && days.includes(0) && days.includes(6)) return '土日';
+  return '毎週 ' + [...days].sort().map(d=>DOW[d]).join('・');
+}
 
 /* 人気のToDo プリセット（マイルーティン参考） */
 const TODO_PRESETS = {
@@ -303,18 +332,19 @@ const TODO_PRESETS = {
 
 /* ============ 今日タブ ============ */
 function renderToday() {
-  const routines = DB.routines();
+  const d = new Date();
+  const routines = DB.routines().filter(r => activeOn(r, d));
   const checks = DB.checks();
   const tk = todayKey();
   const done = checks[tk] || {};
 
-  const d = new Date();
   document.getElementById('today-date').textContent =
     `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 (${DOW[d.getDay()]})`;
 
   const list = document.getElementById('today-list');
   if (routines.length === 0) {
-    list.innerHTML = `<div class="empty">まだ習慣がありません。<br>下の「習慣」タブから追加してね。</div>`;
+    const has = DB.routines().length > 0;
+    list.innerHTML = `<div class="empty">${has ? '今日の曜日に予定された習慣はありません。' : 'まだ習慣がありません。'}<br>下の「習慣」タブから追加・設定してね。</div>`;
   } else {
     // 時間順（未設定は最後）
     const sorted = [...routines].sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
@@ -355,12 +385,18 @@ function toggleToday(id) {
 }
 
 /* ============ カレンダータブ ============ */
+function dateFromKey(dateKey) {
+  const [y,m,d] = dateKey.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+// その日に有効だった習慣だけで達成率を計算。有効な習慣が0なら null(記録対象外)
 function dayRate(dateKey) {
-  const routines = DB.routines();
-  if (routines.length === 0) return 0;
+  const dt = dateFromKey(dateKey);
+  const active = DB.routines().filter(r => activeOn(r, dt));
+  if (active.length === 0) return null;
   const done = (DB.checks()[dateKey]) || {};
-  const cnt = routines.filter(r => done[r.id]).length;
-  return cnt / routines.length;
+  const cnt = active.filter(r => done[r.id]).length;
+  return cnt / active.length;
 }
 function renderCalendar() {
   const y = calView.getFullYear(), m = calView.getMonth();
@@ -377,8 +413,8 @@ function renderCalendar() {
   for (let day=1; day<=daysInMonth; day++) {
     const dk = `${y}-${pad(m+1)}-${pad(day)}`;
     const rate = dayRate(dk);
-    const bg = rate>0 ? `background:rgba(34,197,94,${0.15+rate*0.75});color:${rate>0.5?'#fff':'var(--ink)'};` : '';
-    cells += `<div class="cal-cell ${dk===tk?'today':''}" style="${bg}">${day}${rate>0?`<div class="dot" style="background:${rate>=1?'#16a34a':'transparent'}"></div>`:''}</div>`;
+    const bg = (rate!==null && rate>0) ? `background:rgba(34,197,94,${0.15+rate*0.75});color:${rate>0.5?'#fff':'var(--ink)'};` : '';
+    cells += `<div class="cal-cell ${dk===tk?'today':''}" style="${bg}">${day}${(rate!==null && rate>0)?`<div class="dot" style="background:${rate>=1?'#16a34a':'transparent'}"></div>`:''}</div>`;
   }
   document.getElementById('cal-grid').innerHTML = cells;
 }
@@ -394,37 +430,47 @@ function renderStats() {
   const daysInMonth = new Date(useY, useM+1, 0).getDate();
   const today = now.getDate();
 
-  // 今月の全体達成率（今日まで）
+  // 今月の全体達成率（その日に有効だった習慣だけで計算）
   let doneSum = 0, possible = 0;
   for (let day=1; day<=today; day++) {
+    const dt = new Date(useY, useM, day);
     const dk = `${useY}-${pad(useM+1)}-${pad(day)}`;
     const done = checks[dk] || {};
-    possible += routines.length;
-    doneSum += routines.filter(r => done[r.id]).length;
+    const active = routines.filter(r => activeOn(r, dt));
+    possible += active.length;
+    doneSum += active.filter(r => done[r.id]).length;
   }
   const rate = possible ? Math.round(doneSum/possible*100) : 0;
   document.getElementById('st-rate').textContent = rate + '%';
 
-  // 連続達成日（100%の日が続いてる数、今日 or 昨日から遡る）
+  // 連続達成日（有効習慣が全部done の日が続いてる数。習慣ゼロの日はスキップ）
   let streak = 0;
   let d = new Date();
-  if (dayRate(keyOf(d)) < 1) d.setDate(d.getDate()-1); // 今日未完了なら昨日から
-  while (routines.length>0 && dayRate(keyOf(d)) >= 1) { streak++; d.setDate(d.getDate()-1); }
+  const tr = dayRate(keyOf(d));
+  if (tr === null || tr < 1) d.setDate(d.getDate()-1); // 今日が未完了/対象外なら昨日から
+  for (let guard=0; guard<400; guard++) {
+    const r = dayRate(keyOf(d));
+    if (r === null) { d.setDate(d.getDate()-1); continue; } // 対象習慣ゼロの日は中断せず飛ばす
+    if (r >= 1) { streak++; d.setDate(d.getDate()-1); } else break;
+  }
   document.getElementById('st-streak').textContent = streak;
 
-  // 習慣別の今月達成率
+  // 習慣別の今月達成率（有効だった日数を分母に）
   const bars = document.getElementById('st-bars');
   if (routines.length === 0) {
     bars.innerHTML = `<div class="empty">習慣を追加すると<br>ここに達成率が出るよ</div>`;
     return;
   }
   bars.innerHTML = routines.map(r => {
-    let c = 0;
+    let c = 0, activeDays = 0;
     for (let day=1; day<=today; day++) {
+      const dt = new Date(useY, useM, day);
+      if (!activeOn(r, dt)) continue;
+      activeDays++;
       const dk = `${useY}-${pad(useM+1)}-${pad(day)}`;
       if ((checks[dk]||{})[r.id]) c++;
     }
-    const p = Math.round(c/today*100);
+    const p = activeDays ? Math.round(c/activeDays*100) : 0;
     return `<div class="bar-row">
       <div class="emoji">${r.emoji}</div>
       <div class="bl">
@@ -448,7 +494,7 @@ function renderManage() {
       <div class="emoji">${r.emoji}</div>
       <div class="body">
         <div class="name">${escapeHtml(r.name)}</div>
-        ${r.time ? `<div class="time">${r.time}</div>` : ''}
+        <div class="time">${daysLabel(r.days)}${r.time ? ' ・ '+r.time : ''}</div>
       </div>
       <button class="del" data-del="${r.id}">削除</button>
     </div>`).join('');
@@ -466,30 +512,41 @@ function openModal(id=null) {
     document.getElementById('in-name').value = r.name;
     document.getElementById('in-time').value = r.time || '';
     pickedEmoji = r.emoji;
+    pickedDays = (r.days && r.days.length) ? [...r.days] : [...EVERY];
   } else {
     document.getElementById('modal-title').textContent = '習慣を追加';
     document.getElementById('in-name').value = '';
     document.getElementById('in-time').value = '';
     pickedEmoji = EMOJIS[0];
+    pickedDays = [...EVERY];
   }
+  document.getElementById('dow-pick').innerHTML =
+    DOW.map((d,i)=>`<button type="button" data-d="${i}">${d}</button>`).join('');
   syncEmojiSel();
+  syncDowSel();
   document.getElementById('modal-bg').classList.add('show');
 }
 function syncEmojiSel() {
   document.querySelectorAll('#emoji-pick button').forEach(b =>
     b.classList.toggle('sel', b.dataset.e === pickedEmoji));
 }
+function syncDowSel() {
+  document.querySelectorAll('#dow-pick button').forEach(b =>
+    b.classList.toggle('sel', pickedDays.includes(Number(b.dataset.d))));
+}
 function closeModal() { document.getElementById('modal-bg').classList.remove('show'); }
 function saveModal() {
   const name = document.getElementById('in-name').value.trim();
   if (!name) { document.getElementById('in-name').focus(); return; }
+  if (pickedDays.length === 0) { alert('繰り返す曜日を1つ以上えらんでね'); return; }
   const time = document.getElementById('in-time').value;
+  const days = [...pickedDays].sort();
   const routines = DB.routines();
   if (editingId) {
     const r = routines.find(x=>x.id===editingId);
-    r.name = name; r.time = time; r.emoji = pickedEmoji;
+    r.name = name; r.time = time; r.emoji = pickedEmoji; r.days = days;
   } else {
-    routines.push({ id: 'r'+Date.now(), name, time, emoji: pickedEmoji });
+    routines.push({ id: 'r'+Date.now(), name, time, emoji: pickedEmoji, days });
   }
   DB.saveRoutines(routines);
   closeModal();
@@ -701,6 +758,16 @@ document.getElementById('emoji-pick').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   pickedEmoji = b.dataset.e; syncEmojiSel();
 };
+document.getElementById('dow-pick').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const day = Number(b.dataset.d);
+  if (pickedDays.includes(day)) pickedDays = pickedDays.filter(x=>x!==day);
+  else pickedDays.push(day);
+  syncDowSel();
+};
+document.getElementById('dow-all').onclick = ()=>{ pickedDays=[...EVERY]; syncDowSel(); };
+document.getElementById('dow-weekday').onclick = ()=>{ pickedDays=[1,2,3,4,5]; syncDowSel(); };
+document.getElementById('dow-weekend').onclick = ()=>{ pickedDays=[0,6]; syncDowSel(); };
 document.getElementById('cal-prev').onclick = ()=>{ calView.setMonth(calView.getMonth()-1); renderCalendar(); };
 document.getElementById('cal-next').onclick = ()=>{ calView.setMonth(calView.getMonth()+1); renderCalendar(); };
 
