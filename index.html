@@ -168,6 +168,13 @@
   .exp-item .ea { font-weight:700; flex:0 0 auto; }
   .exp-item .edel { background:none; border:none; color:var(--sub); font-size:16px; flex:0 0 auto; }
 
+  /* backup */
+  .backup-note { font-size:12px; color:var(--sub); margin-bottom:10px; line-height:1.6; }
+  .backup-ta { width:100%; box-sizing:border-box; min-height:84px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:11px; font-family:ui-monospace,monospace; margin:10px 0; }
+  .backup-btns { display:flex; gap:8px; }
+  .backup-btns .btn { flex:1; }
+  .btn.ghost { background:var(--bg); color:var(--ink); }
+
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
   .nav button { flex: 1; background: none; border: none; padding: 8px 0 6px; color: var(--sub); font-size: 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -325,6 +332,17 @@
   <div class="sub">習慣は設定した曜日だけ「今日」のリストに出るよ</div>
   <div class="card" id="manage-list"></div>
   <button class="btn" id="add-btn">＋ 習慣を追加</button>
+
+  <div class="h2">💾 データのバックアップ</div>
+  <div class="card" style="padding:14px;">
+    <div class="backup-note">データはこのブラウザの中だけに保存されてるよ。スマホやブラウザを変えると移らないので、時々ここでバックアップしてね。書き出した文字列は、LINEやメモに自分宛てに送って保管しておくと安心。</div>
+    <div class="backup-btns">
+      <button class="btn" id="backup-export">① 書き出す</button>
+      <button class="btn ghost" id="backup-download">ファイル保存</button>
+    </div>
+    <textarea id="backup-text" class="backup-ta" placeholder="「①書き出す」を押すとここにバックアップ文字列が出る。全部コピーして保管。／復元する時はここに貼り付けて「②復元」を押す。"></textarea>
+    <button class="btn" id="backup-import">② この内容で復元</button>
+  </div>
 </section>
 
 <!-- nav -->
@@ -955,6 +973,36 @@ function delExpense(id) {
   renderExpense();
 }
 
+/* ============ バックアップ / 復元 ============ */
+const BACKUP_KEYS = ['mr_routines','mr_checks','mr_todos','mr_records','mr_expenses','mr_seeded'];
+function exportData() {
+  const data = {};
+  BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = v; });
+  return JSON.stringify({ app:'myroutine', v:1, data });
+}
+function doExport() {
+  document.getElementById('backup-text').value = exportData();
+}
+function doDownload() {
+  const blob = new Blob([exportData()], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'myroutine-backup.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function doImport() {
+  const txt = document.getElementById('backup-text').value.trim();
+  if (!txt) { alert('復元する内容を貼り付けてね'); return; }
+  let obj;
+  try { obj = JSON.parse(txt); } catch(e) { alert('バックアップの形式が正しくないみたい'); return; }
+  if (!obj || obj.app !== 'myroutine' || !obj.data) { alert('これはこのアプリのバックアップじゃないみたい'); return; }
+  if (!confirm('今のデータを、このバックアップの内容で置きかえる？（今の内容は上書きされます）')) return;
+  BACKUP_KEYS.forEach(k => { if (obj.data[k] != null) localStorage.setItem(k, obj.data[k]); });
+  renderAll();
+  alert('復元したよ！');
+}
+
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
@@ -1032,6 +1080,11 @@ document.getElementById('exp-list').onclick = e => {
 };
 document.getElementById('exp-prev').onclick = ()=>{ expView.setMonth(expView.getMonth()-1); renderExpense(); };
 document.getElementById('exp-next').onclick = ()=>{ expView.setMonth(expView.getMonth()+1); renderExpense(); };
+
+// バックアップ
+document.getElementById('backup-export').onclick = doExport;
+document.getElementById('backup-download').onclick = doDownload;
+document.getElementById('backup-import').onclick = doImport;
 document.getElementById('modal-cancel').onclick = closeModal;
 document.getElementById('modal-save').onclick = saveModal;
 document.getElementById('modal-bg').onclick = e => { if (e.target.id==='modal-bg') closeModal(); };
@@ -1060,6 +1113,11 @@ if (DB.routines().length === 0 && !localStorage.getItem('mr_seeded')) {
     { id:'r3', emoji:'🚶', name:'10分間散歩', time:'' },
   ]);
   localStorage.setItem('mr_seeded','1');
+}
+
+/* データが消えにくいよう、永続化をブラウザに要求（対応端末のみ・best-effort） */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(()=>{});
 }
 
 /* PWA — 新バージョンを検知したら自動でリロードして最新に更新 */
