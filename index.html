@@ -43,8 +43,16 @@
   .ring-txt b { font-size: 16px; }
   .ring-txt span { color: var(--sub); font-size: 13px; }
 
-  /* スケジュール（Routinsie風・パステル紫） */
-  :root { --sch:#8b5cf6; --sch-d:#7c3aed; --sch-bg:#f5f3ff; --sch-card:#efeafe; --sch-line:#ddd4fb; }
+  /* スケジュール（Routinsie風・多色パステル） */
+  :root { --sch:#fb7185; --sch-d:#e05a76; --sch-bg:#fff5f7; --sch-card:#ffe4ec; --sch-line:#ffd4e0; }
+  /* イベントカードの多色パステル（peach/yellow/green/blue/purple/pink） */
+  .ev-c0 { background:#ffe0d3; } .ev-c0 .tc, .ev-c0 .rt-t { color:#b5502f; }
+  .ev-c1 { background:#fdf1c4; } .ev-c1 .tc, .ev-c1 .rt-t { color:#997d17; }
+  .ev-c2 { background:#d9f2dc; } .ev-c2 .tc, .ev-c2 .rt-t { color:#3f8a4e; }
+  .ev-c3 { background:#d6e9fb; } .ev-c3 .tc, .ev-c3 .rt-t { color:#3f6ea5; }
+  .ev-c4 { background:#e8def7; } .ev-c4 .tc, .ev-c4 .rt-t { color:#7048a8; }
+  .ev-c5 { background:#ffe0ec; } .ev-c5 .tc, .ev-c5 .rt-t { color:#c04a7a; }
+  .dot-c0{background:#f9a97f}.dot-c1{background:#efc94a}.dot-c2{background:#79c98a}.dot-c3{background:#79a9e0}.dot-c4{background:#a888dd}.dot-c5{background:#f18ab0}
   .sch-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
   .sch-head b { font-size:17px; font-weight:800; }
   .sch-head .cal-nav { background:var(--sch-bg); color:var(--sch-d); }
@@ -55,6 +63,19 @@
   .wk-day.sel { background:var(--sch); }
   .wk-day.sel .wd, .wk-day.sel .wn { color:#fff; }
   .wk-day.today:not(.sel) .wn { color:var(--sch); }
+  /* 月カレンダー（予定一覧） */
+  .pm-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .pm-dow { text-align:center; font-size:10px; color:var(--sub); font-weight:700; padding:2px 0; }
+  .pm-cell { min-height:50px; border-radius:10px; background:var(--card); box-shadow:var(--shadow); padding:4px 3px 3px; overflow:hidden; }
+  .pm-cell.blank { background:transparent; box-shadow:none; }
+  .pm-cell.has { background:var(--sch-bg); }
+  .pm-cell.sel { outline:2px solid var(--sch); }
+  .pm-d { font-size:11px; font-weight:800; text-align:center; color:var(--ink); }
+  .pm-cell.today .pm-d { color:#fff; background:var(--sch); border-radius:8px; }
+  .pm-ev { font-size:8px; line-height:1.3; color:var(--sch-d); background:#fff; border-radius:4px; margin-top:2px; padding:1px 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pm-more { font-size:8px; color:var(--sub); text-align:center; margin-top:1px; }
+  .pm-dots { display:flex; flex-wrap:wrap; gap:2px; justify-content:center; margin-top:3px; }
+  .pm-dot { width:5px; height:5px; border-radius:50%; }
   .plan-date-row { display:none; }
   .plan-day { font-size:13px; color:var(--sch-d); font-weight:800; margin:0 2px 12px; }
 
@@ -63,7 +84,8 @@
   .tl-row { display:flex; gap:10px; align-items:flex-start; margin-bottom:2px; }
   .tl-time { width:52px; flex:0 0 auto; text-align:right; font-size:12px; font-weight:800; color:var(--sch-d); padding-top:14px; }
   .tl-card { flex:1; min-width:0; background:var(--sch-card); border-radius:14px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
-  .tl-card .tc { flex:1; font-weight:700; font-size:15px; color:#3b2f63; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tl-card.ev-c0{background:#ffe0d3}.tl-card.ev-c1{background:#fdf1c4}.tl-card.ev-c2{background:#d9f2dc}.tl-card.ev-c3{background:#d6e9fb}.tl-card.ev-c4{background:#e8def7}.tl-card.ev-c5{background:#ffe0ec}
+  .tl-card .tc { flex:1; font-weight:700; font-size:15px; color:#4a4458; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .tl-card .tdel { background:none; border:none; color:#a99fc9; font-size:16px; flex:0 0 auto; }
   .tl-empty { color:var(--sub); font-size:13px; text-align:center; padding:20px; }
 
@@ -277,8 +299,9 @@
     <b id="wk-title"></b>
     <button class="cal-nav" id="plan-next">›</button>
   </div>
-  <div class="wk" id="wk-strip"></div>
-  <div class="plan-day" id="plan-day"></div>
+  <div class="pm-grid" id="pm-dow"></div>
+  <div class="pm-grid" id="pm-grid" style="margin-top:4px;"></div>
+  <div class="plan-day" id="plan-day" style="margin-top:16px;"></div>
   <div class="sched-add">
     <input type="time" id="plan-time" />
     <input type="text" id="plan-text" placeholder="内容（例：美容院）" maxlength="40" />
@@ -564,10 +587,10 @@ function renderSchedule() {
     list.innerHTML = `<div class="tl-empty">時間と内容を入れて予定を追加してね</div>`;
     return;
   }
-  list.innerHTML = `<div class="tl">` + items.map(s => `
+  list.innerHTML = `<div class="tl">` + items.map((s,i) => `
     <div class="tl-row" data-id="${s.id}">
       <div class="tl-time">${s.time}</div>
-      <div class="tl-card"><span class="tc">${escapeHtml(s.text)}</span><button class="tdel" data-del="${s.id}">✕</button></div>
+      <div class="tl-card ev-c${i%6}"><span class="tc">${escapeHtml(s.text)}</span><button class="tdel" data-del="${s.id}">✕</button></div>
     </div>`).join('') + `</div>`;
 }
 function addSchedule() {
@@ -592,39 +615,58 @@ function initPlanDate() {
   const el = document.getElementById('plan-date');
   if (!el.value) el.value = todayKey();
 }
+function dayPlans(dateKey) {
+  return DB.schedule().filter(s => s.date === dateKey).sort((a,b) => a.time.localeCompare(b.time));
+}
 function renderPlanner() {
   initPlanDate();
   const dk = document.getElementById('plan-date').value || todayKey();
   const dt = dateFromKey(dk);
   const tk = todayKey();
+  const y = dt.getFullYear(), m = dt.getMonth();
 
-  // 週バー（選択日を含む日〜土）
-  document.getElementById('wk-title').textContent = `${dt.getFullYear()}年${dt.getMonth()+1}月`;
-  const sun = dateFromKey(dk); sun.setDate(dt.getDate() - dt.getDay());
-  let wk = '';
-  for (let i=0;i<7;i++) {
-    const d = new Date(sun); d.setDate(sun.getDate()+i);
-    const k = keyOf(d);
-    const cls = (k===dk?'sel':'') + (k===tk?' today':'');
-    wk += `<div class="wk-day ${cls}" data-day="${k}"><div class="wd">${DOW[d.getDay()]}</div><div class="wn">${d.getDate()}</div></div>`;
+  // 月カレンダー
+  document.getElementById('wk-title').textContent = `${y}年${m+1}月`;
+  document.getElementById('pm-dow').innerHTML = DOW.map(d=>`<div class="pm-dow">${d}</div>`).join('');
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const startDow = new Date(y, m, 1).getDay();
+  let cells = '';
+  for (let i=0;i<startDow;i++) cells += `<div class="pm-cell blank"></div>`;
+  for (let day=1; day<=daysInMonth; day++) {
+    const k = `${y}-${pad(m+1)}-${pad(day)}`;
+    const plans = dayPlans(k);
+    const dots = plans.slice(0,6).map((p,i)=>`<span class="pm-dot dot-c${i%6}"></span>`).join('');
+    const cls = (plans.length?'has ':'') + (k===dk?'sel ':'') + (k===tk?'today':'');
+    cells += `<div class="pm-cell ${cls}" data-day="${k}"><div class="pm-d">${day}</div>${plans.length?`<div class="pm-dots">${dots}</div>`:''}</div>`;
   }
-  document.getElementById('wk-strip').innerHTML = wk;
+  document.getElementById('pm-grid').innerHTML = cells;
 
+  // 選択日の詳細
   const rel = dk === tk ? '今日' : dk < tk ? '過去の予定' : 'これからの予定';
   document.getElementById('plan-day').textContent =
     `${dt.getMonth()+1}月${dt.getDate()}日 (${DOW[dt.getDay()]})・${rel}`;
-
-  const items = DB.schedule().filter(s => s.date === dk).sort((a,b) => a.time.localeCompare(b.time));
+  const items = dayPlans(dk);
   const list = document.getElementById('plan-list');
   if (items.length === 0) {
     list.innerHTML = `<div class="tl-empty">この日の予定はまだないよ。<br>時間と内容を入れて追加してね。</div>`;
     return;
   }
-  list.innerHTML = items.map(s => `
+  list.innerHTML = items.map((s,i) => `
     <div class="tl-row" data-id="${s.id}">
       <div class="tl-time">${s.time}</div>
-      <div class="tl-card"><span class="tc">${escapeHtml(s.text)}</span><button class="tdel" data-del="${s.id}">✕</button></div>
+      <div class="tl-card ev-c${i%6}"><span class="tc">${escapeHtml(s.text)}</span><button class="tdel" data-del="${s.id}">✕</button></div>
     </div>`).join('');
+}
+function shiftPlanMonth(delta) {
+  const el = document.getElementById('plan-date');
+  const dt = dateFromKey(el.value || todayKey());
+  const day = dt.getDate();
+  dt.setDate(1);
+  dt.setMonth(dt.getMonth() + delta);
+  const dim = new Date(dt.getFullYear(), dt.getMonth()+1, 0).getDate();
+  dt.setDate(Math.min(day, dim));
+  el.value = keyOf(dt);
+  renderPlanner();
 }
 function addPlan() {
   const date = document.getElementById('plan-date').value || todayKey();
@@ -1197,10 +1239,10 @@ document.getElementById('sched-list').onclick = e => {
 document.getElementById('plan-add').onclick = addPlan;
 document.getElementById('plan-text').addEventListener('keydown', e => { if (e.key==='Enter') addPlan(); });
 document.getElementById('plan-date').addEventListener('change', renderPlanner);
-document.getElementById('plan-prev').onclick = ()=>shiftPlanDate(-7);
-document.getElementById('plan-next').onclick = ()=>shiftPlanDate(7);
-document.getElementById('wk-strip').onclick = e => {
-  const d = e.target.closest('[data-day]'); if (!d) return;
+document.getElementById('plan-prev').onclick = ()=>shiftPlanMonth(-1);
+document.getElementById('plan-next').onclick = ()=>shiftPlanMonth(1);
+document.getElementById('pm-grid').onclick = e => {
+  const d = e.target.closest('[data-day]'); if (!d || d.classList.contains('blank')) return;
   document.getElementById('plan-date').value = d.dataset.day;
   renderPlanner();
 };
