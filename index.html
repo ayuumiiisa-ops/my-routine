@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="マイルーティン" />
 <link rel="manifest" href="manifest.json" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
 <title>マイルーティン</title>
 <style>
   :root {
@@ -24,7 +27,8 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-family: "M PLUS Rounded 1c", "Zen Maru Gothic", -apple-system, BlinkMacSystemFont, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-weight: 400;
     background: var(--bg);
     color: var(--ink);
     padding-bottom: calc(72px + var(--safe-b));
@@ -32,7 +36,7 @@
   }
   .screen { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
   .screen.active { display: block; }
-  .h1 { font-size: 22px; font-weight: 800; margin: 8px 2px 2px; }
+  .h1 { font-size: 22px; font-weight: 700; margin: 8px 2px 2px; }
   .sub { color: var(--sub); font-size: 13px; margin: 0 2px 16px; }
 
   /* progress ring */
@@ -153,7 +157,7 @@
   .del { background:none; border:none; color:#ef4444; font-size:13px; padding:6px 8px; }
 
   /* todo */
-  .h2 { font-size: 15px; font-weight: 800; margin: 22px 2px 10px; }
+  .h2 { font-size: 15px; font-weight: 700; margin: 22px 2px 10px; }
   .todo-add-row { display:flex; gap:8px; margin-bottom:14px; }
   .todo-add-row input { flex:1; border:1px solid #e5e7eb; border-radius:12px; padding:12px; font-size:16px; font-family:inherit; background:var(--card); }
   .todo-add-row button { background:var(--green); color:#fff; border:none; border-radius:12px; padding:0 18px; font-weight:700; font-size:14px; }
