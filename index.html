@@ -231,8 +231,8 @@
   .theme-colors { display:flex; gap:12px; flex-wrap:wrap; }
   .theme-sw { width:38px; height:38px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px #e5e7eb; }
   .theme-sw.sel { box-shadow:0 0 0 3px var(--ink); }
-  .theme-bgs { display:flex; gap:10px; }
-  .theme-bg { flex:1; border:2px solid #e5e7eb; border-radius:12px; padding:12px 8px; font-size:13px; font-weight:700; text-align:center; background:#fff; }
+  .theme-bgs { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .theme-bg { border:2px solid #e5e7eb; border-radius:12px; padding:11px 6px; font-size:12px; font-weight:700; text-align:center; background:#fff; }
   .theme-bg.sel { border-color:var(--green); color:var(--green-d); }
   .theme-lbl { font-size:12px; color:var(--sub); font-weight:700; margin:14px 2px 8px; }
 
@@ -1214,6 +1214,14 @@ const THEMES = {
 function getTheme() { return JSON.parse(localStorage.getItem('mr_theme') || '{"accent":"green","bg":"plain"}'); }
 function saveTheme(t) { localStorage.setItem('mr_theme', JSON.stringify(t)); }
 function hexToRgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+const ICON_PATHS = {
+  hearts: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
+  stars: 'M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z',
+};
+function iconBg(pathD, hex) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='46' height='46' viewBox='0 0 46 46'><g transform='translate(11,11)'><path d='${pathD}' fill='${hex}' fill-opacity='0.16'/></g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 function applyTheme() {
   const t = getTheme();
   const p = THEMES[t.accent] || THEMES.green;
@@ -1221,23 +1229,43 @@ function applyTheme() {
   root.style.setProperty('--green', p.c);
   root.style.setProperty('--green-d', p.d);
   const [r,g,b] = hexToRgb(p.c);
-  if (t.bg === 'gingham') {
-    const c = `rgba(${r},${g},${b},0.12)`;
-    document.body.style.backgroundColor = '#ffffff';
-    document.body.style.backgroundImage =
-      `repeating-linear-gradient(0deg, ${c} 0 14px, transparent 14px 28px),` +
-      `repeating-linear-gradient(90deg, ${c} 0 14px, transparent 14px 28px)`;
-    document.body.style.backgroundAttachment = 'fixed';
-  } else {
-    document.body.style.backgroundColor = '';
-    document.body.style.backgroundImage = '';
+  const c = `rgba(${r},${g},${b},0.12)`;
+  const bs = document.body.style;
+  bs.backgroundColor = ''; bs.backgroundImage = ''; bs.backgroundSize = '';
+  bs.backgroundAttachment = 'fixed';
+  switch (t.bg) {
+    case 'gingham':
+      bs.backgroundColor = '#ffffff';
+      bs.backgroundImage = `repeating-linear-gradient(0deg, ${c} 0 14px, transparent 14px 28px),repeating-linear-gradient(90deg, ${c} 0 14px, transparent 14px 28px)`;
+      break;
+    case 'dots':
+      bs.backgroundColor = '#ffffff';
+      bs.backgroundImage = `radial-gradient(rgba(${r},${g},${b},0.18) 3px, transparent 3px)`;
+      bs.backgroundSize = '22px 22px';
+      break;
+    case 'stripe':
+      bs.backgroundColor = '#ffffff';
+      bs.backgroundImage = `repeating-linear-gradient(45deg, ${c} 0 10px, transparent 10px 22px)`;
+      break;
+    case 'hearts':
+      bs.backgroundColor = '#ffffff';
+      bs.backgroundImage = iconBg(ICON_PATHS.hearts, p.c);
+      bs.backgroundSize = '46px 46px';
+      break;
+    case 'stars':
+      bs.backgroundColor = '#ffffff';
+      bs.backgroundImage = iconBg(ICON_PATHS.stars, p.c);
+      bs.backgroundSize = '46px 46px';
+      break;
+    default:
+      bs.backgroundAttachment = '';
   }
 }
 function renderThemeUI() {
   const t = getTheme();
   document.getElementById('theme-colors').innerHTML = Object.keys(THEMES).map(k =>
     `<button class="theme-sw ${k===t.accent?'sel':''}" data-accent="${k}" title="${THEMES[k].name}" style="background:${THEMES[k].c}"></button>`).join('');
-  const bgs = [['plain','プレーン'],['gingham','ギンガムチェック']];
+  const bgs = [['plain','プレーン'],['gingham','ギンガム'],['dots','ドット'],['stripe','ストライプ'],['hearts','ハート'],['stars','スター']];
   document.getElementById('theme-bgs').innerHTML = bgs.map(([k,n]) =>
     `<button class="theme-bg ${k===t.bg?'sel':''}" data-bg="${k}">${n}</button>`).join('');
 }
