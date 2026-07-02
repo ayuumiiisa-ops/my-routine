@@ -43,6 +43,11 @@
   .ring-txt b { font-size: 16px; }
   .ring-txt span { color: var(--sub); font-size: 13px; }
 
+  /* スケジュールタブ 日付行 */
+  .plan-date-row { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .plan-date-row input[type=date]{ flex:1; border:1px solid #e5e7eb; border-radius:10px; padding:9px 10px; font-size:16px; font-family:inherit; text-align:center; }
+  .plan-day { font-size:13px; color:var(--sub); font-weight:700; margin:0 2px 12px; }
+
   /* 今日のスケジュール */
   .sched-add { display:flex; gap:8px; margin-bottom:12px; }
   .sched-add input[type=time]{ border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:15px; font-family:inherit; flex:0 0 auto; }
@@ -188,8 +193,8 @@
 
   /* bottom nav */
   .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; padding-bottom: var(--safe-b); z-index: 50; }
-  .nav button { flex: 1; background: none; border: none; padding: 8px 0 6px; color: var(--sub); font-size: 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .nav button .ic { font-size: 19px; line-height:1; }
+  .nav button { flex: 1; min-width:0; background: none; border: none; padding: 7px 0 6px; color: var(--sub); font-size: 8.5px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nav button .ic { font-size: 18px; line-height:1; }
   .nav button.active { color: var(--green); font-weight: 700; }
 
   /* modal */
@@ -244,6 +249,24 @@
     <button id="sched-add">追加</button>
   </div>
   <div id="sched-list"></div>
+</section>
+
+<!-- スケジュール（先の日付も） -->
+<section id="planner" class="screen">
+  <div class="h1">スケジュール</div>
+  <div class="sub">先の日付の予定も入れられる。その日になると「今日」に自動で出るよ</div>
+  <div class="plan-date-row">
+    <button class="cal-nav" id="plan-prev">‹</button>
+    <input type="date" id="plan-date" />
+    <button class="cal-nav" id="plan-next">›</button>
+  </div>
+  <div class="plan-day" id="plan-day"></div>
+  <div class="sched-add">
+    <input type="time" id="plan-time" />
+    <input type="text" id="plan-text" placeholder="内容（例：美容院）" maxlength="40" />
+    <button id="plan-add">追加</button>
+  </div>
+  <div id="plan-list"></div>
 </section>
 
 <!-- ToDo -->
@@ -367,6 +390,7 @@
 <!-- nav -->
 <nav class="nav">
   <button data-t="today" class="active"><span class="ic">📋</span>今日</button>
+  <button data-t="planner"><span class="ic">📆</span>予定</button>
   <button data-t="todo"><span class="ic">📝</span>ToDo</button>
   <button data-t="record"><span class="ic">📈</span>記録</button>
   <button data-t="expense"><span class="ic">🧾</span>食費</button>
@@ -544,6 +568,59 @@ function addSchedule() {
 function delSchedule(id) {
   DB.saveSchedule(DB.schedule().filter(s => s.id !== id));
   renderSchedule();
+}
+
+/* スケジュールタブ（任意の日付・先の予定もOK） */
+function initPlanDate() {
+  const el = document.getElementById('plan-date');
+  if (!el.value) el.value = todayKey();
+}
+function renderPlanner() {
+  initPlanDate();
+  const dk = document.getElementById('plan-date').value || todayKey();
+  const dt = dateFromKey(dk);
+  const tk = todayKey();
+  const rel = dk === tk ? '（今日）' : dk < tk ? '（過去）' : '（これからの予定）';
+  document.getElementById('plan-day').textContent =
+    `${dt.getMonth()+1}月${dt.getDate()}日 (${DOW[dt.getDay()]}) ${rel}`;
+  const items = DB.schedule().filter(s => s.date === dk).sort((a,b) => a.time.localeCompare(b.time));
+  const list = document.getElementById('plan-list');
+  if (items.length === 0) {
+    list.innerHTML = `<div class="sched-empty">この日の予定はまだないよ。時間と内容を入れて追加してね。</div>`;
+    return;
+  }
+  list.innerHTML = items.map(s => `
+    <div class="sched-item" data-id="${s.id}">
+      <span class="st">${s.time}</span>
+      <span class="sc">${escapeHtml(s.text)}</span>
+      <button class="sdel" data-del="${s.id}">✕</button>
+    </div>`).join('');
+}
+function addPlan() {
+  const date = document.getElementById('plan-date').value || todayKey();
+  const time = document.getElementById('plan-time').value;
+  const text = document.getElementById('plan-text').value.trim();
+  if (!time) { document.getElementById('plan-time').focus(); return; }
+  if (!text) { document.getElementById('plan-text').focus(); return; }
+  const s = DB.schedule();
+  s.push({ id:'s'+Date.now(), date, time, text });
+  DB.saveSchedule(s);
+  document.getElementById('plan-time').value = '';
+  document.getElementById('plan-text').value = '';
+  renderPlanner();
+  renderSchedule(); // 今日の分なら今日タブにも反映
+}
+function delPlan(id) {
+  DB.saveSchedule(DB.schedule().filter(s => s.id !== id));
+  renderPlanner();
+  renderSchedule();
+}
+function shiftPlanDate(days) {
+  const el = document.getElementById('plan-date');
+  const dt = dateFromKey(el.value || todayKey());
+  dt.setDate(dt.getDate() + days);
+  el.value = keyOf(dt);
+  renderPlanner();
 }
 
 /* くろちゃんのセリフ（進捗で変化・ランダム） */
@@ -1067,6 +1144,7 @@ function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderExpense
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
+  if (t==='planner') renderPlanner();
   if (t==='todo') renderTodo();
   if (t==='record') renderRecord();
   if (t==='expense') renderExpense();
@@ -1084,6 +1162,16 @@ document.getElementById('sched-text').addEventListener('keydown', e => { if (e.k
 document.getElementById('sched-list').onclick = e => {
   const del = e.target.closest('[data-del]');
   if (del) delSchedule(del.dataset.del);
+};
+// スケジュールタブ
+document.getElementById('plan-add').onclick = addPlan;
+document.getElementById('plan-text').addEventListener('keydown', e => { if (e.key==='Enter') addPlan(); });
+document.getElementById('plan-date').addEventListener('change', renderPlanner);
+document.getElementById('plan-prev').onclick = ()=>shiftPlanDate(-1);
+document.getElementById('plan-next').onclick = ()=>shiftPlanDate(1);
+document.getElementById('plan-list').onclick = e => {
+  const del = e.target.closest('[data-del]');
+  if (del) delPlan(del.dataset.del);
 };
 document.getElementById('manage-list').onclick = e => {
   const del = e.target.closest('[data-del]');
