@@ -267,6 +267,9 @@
   .cicon-pick button { padding:8px 0; border:1px solid transparent; border-radius:10px; background:var(--bg); color:var(--green); display:flex; justify-content:center; }
   .cicon-pick button svg { width:22px; height:22px; }
   .cicon-pick button.sel { border-color:var(--green); background:#f0f7ff; }
+  .nav button .cicon { color: inherit; }
+  .nav button .ic svg { width: 20px; height: 20px; }
+  .weather-pick button { display:flex; align-items:center; justify-content:center; }
   .dow-pick { display:flex; gap:6px; }
   .dow-pick button { flex:1; aspect-ratio:1; border:1px solid #e5e7eb; border-radius:50%; background:var(--bg); font-size:13px; font-weight:700; color:var(--sub); }
   .dow-pick button.sel { background:var(--green); border-color:var(--green); color:#fff; }
@@ -354,11 +357,11 @@
       <label>記録する日</label>
       <input type="date" id="rec-date" />
     </div>
-    <div class="rec-row"><span class="re">🌅</span><span class="rl">起床時間</span><input type="time" id="rec-wake" /></div>
-    <div class="rec-row"><span class="re">🌙</span><span class="rl">就寝時間</span><input type="time" id="rec-sleep" /></div>
-    <div class="rec-row"><span class="re">⚖️</span><span class="rl">体重</span><input type="number" id="rec-weight" step="0.1" min="0" inputmode="decimal" placeholder="52.5" /><span class="unit">kg</span></div>
+    <div class="rec-row"><span class="re" data-icon="l_wake"></span><span class="rl">起床時間</span><input type="time" id="rec-wake" /></div>
+    <div class="rec-row"><span class="re" data-icon="moon"></span><span class="rl">就寝時間</span><input type="time" id="rec-sleep" /></div>
+    <div class="rec-row"><span class="re" data-icon="l_weight"></span><span class="rl">体重</span><input type="number" id="rec-weight" step="0.1" min="0" inputmode="decimal" placeholder="52.5" /><span class="unit">kg</span></div>
     <div class="rec-weather">
-      <div class="rwl">🌤️ 天気</div>
+      <div class="rwl"><span class="re" data-icon="w_partly" style="width:auto"></span> 天気</div>
       <div class="weather-pick" id="weather-pick"></div>
     </div>
   </div>
@@ -459,14 +462,14 @@
 
 <!-- nav -->
 <nav class="nav">
-  <button data-t="today" class="active"><span class="ic">📋</span>今日</button>
-  <button data-t="planner"><span class="ic">📆</span>予定</button>
-  <button data-t="todo"><span class="ic">📝</span>ToDo</button>
-  <button data-t="record"><span class="ic">📈</span>記録</button>
-  <button data-t="expense"><span class="ic">🧾</span>食費</button>
-  <button data-t="calendar"><span class="ic">📅</span>カレンダー</button>
-  <button data-t="stats"><span class="ic">📊</span>統計</button>
-  <button data-t="manage"><span class="ic">⚙️</span>習慣</button>
+  <button data-t="today" class="active"><span class="ic" data-icon="n_today"></span>今日</button>
+  <button data-t="planner"><span class="ic" data-icon="n_plan"></span>予定</button>
+  <button data-t="todo"><span class="ic" data-icon="n_todo"></span>ToDo</button>
+  <button data-t="record"><span class="ic" data-icon="n_record"></span>記録</button>
+  <button data-t="expense"><span class="ic" data-icon="n_expense"></span>食費</button>
+  <button data-t="calendar"><span class="ic" data-icon="n_calendar"></span>カレンダー</button>
+  <button data-t="stats"><span class="ic" data-icon="n_stats"></span>統計</button>
+  <button data-t="manage"><span class="ic" data-icon="n_settings"></span>習慣</button>
 </nav>
 
 <!-- modal -->
@@ -535,7 +538,7 @@ let todoCat = '生活';
 let pickedWeather = '';
 let weaView = new Date();
 let expView = new Date();
-const WEATHERS = ['☀️','🌤️','⛅','☁️','🌧️','⛈️','🌨️','🌫️'];
+const WEATHERS = ['svg:w_sun','svg:w_partly','svg:w_cloud','svg:w_clouds','svg:w_rain','svg:w_thunder','svg:w_snow','svg:w_fog'];
 
 const EVERY = [0,1,2,3,4,5,6];
 // その習慣が指定日に有効か（days 未設定＝毎日として後方互換）
@@ -580,6 +583,27 @@ const ICONSET = {
   apple:'<path d="M12 7c-2-3-6-2-6 2 0 4 3 8 6 8s6-4 6-8c0-4-4-5-6-2z"/><path d="M12 7V4"/>',
   droplet2:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
   flower:'<circle cx="12" cy="12" r="3"/><path d="M12 9a3 3 0 0 0 0-6 3 3 0 0 0 0 6zM12 15a3 3 0 0 0 0 6 3 3 0 0 0 0-6zM15 12a3 3 0 0 0 6 0 3 3 0 0 0-6 0zM9 12a3 3 0 0 0-6 0 3 3 0 0 0 6 0z"/>',
+  // 天気
+  w_sun:'<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+  w_partly:'<circle cx="8" cy="8" r="3.2"/><path d="M8 1v1.5M2.5 8H1M3.7 3.7l-1 -1M12.3 3.7l1-1"/><path d="M17.5 20a3.5 3.5 0 0 0 .3-7 5 5 0 0 0-9.6 1A4 4 0 0 0 8.5 20z"/>',
+  w_cloud:'<path d="M17.5 19a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.5-1.3A4.2 4.2 0 0 0 6.5 19z"/>',
+  w_clouds:'<path d="M15 16a3.5 3.5 0 0 0 .3-7 5 5 0 0 0-9.4 1A3.6 3.6 0 0 0 6 16z"/><path d="M11 19h7a3 3 0 0 0 0-6"/>',
+  w_rain:'<path d="M17.5 15a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.5-1.3A4.2 4.2 0 0 0 6.5 15z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/>',
+  w_thunder:'<path d="M17.5 14a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.5-1.3A4.2 4.2 0 0 0 6.5 14z"/><path d="M13 14l-3 4h3l-3 4"/>',
+  w_snow:'<path d="M17.5 15a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.5-1.3A4.2 4.2 0 0 0 6.5 15z"/><path d="M8 19h.01M12 19h.01M16 19h.01M10 22h.01M14 22h.01"/>',
+  w_fog:'<path d="M3 8h18M5 12h14M4 16h16M7 20h10"/>',
+  // 下タブ
+  n_today:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v3h8V3M8 11h8M8 15h5"/>',
+  n_plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+  n_todo:'<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/>',
+  n_record:'<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/>',
+  n_expense:'<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  n_calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M7 14h.01M11 14h.01M15 14h.01M7 17h.01M11 17h.01"/>',
+  n_stats:'<path d="M5 21V9M12 21V4M19 21v-8"/><path d="M2 21h20"/>',
+  n_settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  // 記録の見出し
+  l_wake:'<path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M23 22H1M8 6l4-4 4 4"/>',
+  l_weight:'<circle cx="12" cy="12" r="9"/><path d="M12 12l3-4"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/>',
 };
 function iconSvg(inner){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`; }
 function iconHTML(val){
@@ -588,6 +612,13 @@ function iconHTML(val){
     if (inner) return `<span class="cicon">${iconSvg(inner)}</span>`;
   }
   return val; // 絵文字はそのまま
+}
+// data-icon 属性を持つ要素に、お手製アイコンを差し込む（ナビ・見出し等）
+function fillIcons(){
+  document.querySelectorAll('[data-icon]').forEach(el => {
+    const inner = ICONSET[el.dataset.icon];
+    if (inner) el.innerHTML = `<span class="cicon">${iconSvg(inner)}</span>`;
+  });
 }
 
 /* ============ 今日タブ ============ */
@@ -1093,7 +1124,7 @@ function saveRecord() {
 }
 function renderWeatherPick() {
   document.getElementById('weather-pick').innerHTML =
-    WEATHERS.map(w => `<button data-w="${w}" class="${w===pickedWeather?'sel':''}">${w}</button>`).join('');
+    WEATHERS.map(w => `<button data-w="${w}" class="${w===pickedWeather?'sel':''}">${iconHTML(w)}</button>`).join('');
 }
 function renderWeatherCal() {
   const y = weaView.getFullYear(), m = weaView.getMonth();
@@ -1108,7 +1139,7 @@ function renderWeatherCal() {
   for (let day=1; day<=daysInMonth; day++) {
     const dk = `${y}-${pad(m+1)}-${pad(day)}`;
     const w = (rec[dk]||{}).weather || '';
-    cells += `<div class="cal-cell wea-cell ${dk===tk?'today':''}"><small>${day}</small><span class="we">${w}</span></div>`;
+    cells += `<div class="cal-cell wea-cell ${dk===tk?'today':''}"><small>${day}</small><span class="we">${w?iconHTML(w):''}</span></div>`;
   }
   document.getElementById('wea-grid').innerHTML = cells;
 }
@@ -1345,7 +1376,7 @@ function doImport() {
 
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){ applyTheme(); renderThemeUI(); renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
+function renderAll(){ applyTheme(); fillIcons(); renderThemeUI(); renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
 
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
