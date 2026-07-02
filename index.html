@@ -43,6 +43,17 @@
   .ring-txt b { font-size: 16px; }
   .ring-txt span { color: var(--sub); font-size: 13px; }
 
+  /* 今日のスケジュール */
+  .sched-add { display:flex; gap:8px; margin-bottom:12px; }
+  .sched-add input[type=time]{ border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:15px; font-family:inherit; flex:0 0 auto; }
+  .sched-add input[type=text]{ flex:1; min-width:0; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:16px; font-family:inherit; }
+  .sched-add button{ background:var(--green); color:#fff; border:none; border-radius:10px; padding:0 16px; font-weight:700; flex:0 0 auto; }
+  .sched-item { display:flex; align-items:center; gap:12px; background:var(--card); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow); margin-bottom:8px; border-left:4px solid var(--green); }
+  .sched-item .st { font-weight:800; color:var(--green-d); font-size:14px; width:46px; flex:0 0 auto; }
+  .sched-item .sc { flex:1; font-weight:600; font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sched-item .sdel { background:none; border:none; color:var(--sub); font-size:16px; flex:0 0 auto; }
+  .sched-empty { color:var(--sub); font-size:13px; text-align:center; padding:18px; }
+
   /* くろちゃん 励ましキャラ */
   .kuro-card { display:flex; align-items:center; gap:12px; margin: 4px 2px 16px; }
   .kuro-av { width:64px; height:64px; border-radius:50%; overflow:hidden; flex:0 0 auto; box-shadow:var(--shadow); background:#fff; animation: kuroBob 2.6s ease-in-out infinite; }
@@ -225,6 +236,14 @@
     </div>
   </div>
   <div id="today-list"></div>
+
+  <div class="h2">🗓️ 今日のスケジュール</div>
+  <div class="sched-add">
+    <input type="time" id="sched-time" />
+    <input type="text" id="sched-text" placeholder="内容（例：ジム）" maxlength="40" />
+    <button id="sched-add">追加</button>
+  </div>
+  <div id="sched-list"></div>
 </section>
 
 <!-- ToDo -->
@@ -401,6 +420,8 @@ const DB = {
   saveRecords(r) { localStorage.setItem('mr_records', JSON.stringify(r)); },
   expenses() { return JSON.parse(localStorage.getItem('mr_expenses') || '[]'); },
   saveExpenses(e) { localStorage.setItem('mr_expenses', JSON.stringify(e)); },
+  schedule() { return JSON.parse(localStorage.getItem('mr_schedule') || '[]'); },
+  saveSchedule(s) { localStorage.setItem('mr_schedule', JSON.stringify(s)); },
 };
 
 /* ============ 日付ユーティリティ ============ */
@@ -488,6 +509,41 @@ function renderToday() {
 
   // くろちゃんの励まし
   document.getElementById('kuro-bubble').textContent = kuroSay(total, cnt, pct);
+
+  renderSchedule();
+}
+
+/* 今日のスケジュール（時間＋内容） */
+function renderSchedule() {
+  const tk = todayKey();
+  const items = DB.schedule().filter(s => s.date === tk).sort((a,b) => a.time.localeCompare(b.time));
+  const list = document.getElementById('sched-list');
+  if (items.length === 0) {
+    list.innerHTML = `<div class="sched-empty">時間と内容を入れて予定を追加してね</div>`;
+    return;
+  }
+  list.innerHTML = items.map(s => `
+    <div class="sched-item" data-id="${s.id}">
+      <span class="st">${s.time}</span>
+      <span class="sc">${escapeHtml(s.text)}</span>
+      <button class="sdel" data-del="${s.id}">✕</button>
+    </div>`).join('');
+}
+function addSchedule() {
+  const time = document.getElementById('sched-time').value;
+  const text = document.getElementById('sched-text').value.trim();
+  if (!time) { document.getElementById('sched-time').focus(); return; }
+  if (!text) { document.getElementById('sched-text').focus(); return; }
+  const s = DB.schedule();
+  s.push({ id:'s'+Date.now(), date: todayKey(), time, text });
+  DB.saveSchedule(s);
+  document.getElementById('sched-time').value = '';
+  document.getElementById('sched-text').value = '';
+  renderSchedule();
+}
+function delSchedule(id) {
+  DB.saveSchedule(DB.schedule().filter(s => s.id !== id));
+  renderSchedule();
 }
 
 /* くろちゃんのセリフ（進捗で変化・ランダム） */
@@ -975,7 +1031,7 @@ function delExpense(id) {
 }
 
 /* ============ バックアップ / 復元 ============ */
-const BACKUP_KEYS = ['mr_routines','mr_checks','mr_todos','mr_records','mr_expenses','mr_seeded'];
+const BACKUP_KEYS = ['mr_routines','mr_checks','mr_todos','mr_records','mr_expenses','mr_schedule','mr_seeded'];
 function exportData() {
   const data = {};
   BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = v; });
@@ -1022,6 +1078,12 @@ function switchTab(t) {
 document.querySelectorAll('.nav button').forEach(b => b.onclick = ()=>switchTab(b.dataset.t));
 document.getElementById('today-list').onclick = e => {
   const item = e.target.closest('.item'); if (item) toggleToday(item.dataset.id);
+};
+document.getElementById('sched-add').onclick = addSchedule;
+document.getElementById('sched-text').addEventListener('keydown', e => { if (e.key==='Enter') addSchedule(); });
+document.getElementById('sched-list').onclick = e => {
+  const del = e.target.closest('[data-del]');
+  if (del) delSchedule(del.dataset.del);
 };
 document.getElementById('manage-list').onclick = e => {
   const del = e.target.closest('[data-del]');
