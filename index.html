@@ -227,6 +227,15 @@
   .exp-item .ea { font-weight:700; flex:0 0 auto; }
   .exp-item .edel { background:none; border:none; color:var(--sub); font-size:16px; flex:0 0 auto; }
 
+  /* きせかえ */
+  .theme-colors { display:flex; gap:12px; flex-wrap:wrap; }
+  .theme-sw { width:38px; height:38px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px #e5e7eb; }
+  .theme-sw.sel { box-shadow:0 0 0 3px var(--ink); }
+  .theme-bgs { display:flex; gap:10px; }
+  .theme-bg { flex:1; border:2px solid #e5e7eb; border-radius:12px; padding:12px 8px; font-size:13px; font-weight:700; text-align:center; background:#fff; }
+  .theme-bg.sel { border-color:var(--green); color:var(--green-d); }
+  .theme-lbl { font-size:12px; color:var(--sub); font-weight:700; margin:14px 2px 8px; }
+
   /* backup */
   .backup-note { font-size:12px; color:var(--sub); margin-bottom:10px; line-height:1.6; }
   .backup-ta { width:100%; box-sizing:border-box; min-height:84px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:11px; font-family:ui-monospace,monospace; margin:10px 0; }
@@ -420,6 +429,14 @@
   <div class="sub">習慣は設定した曜日だけ「今日」のリストに出るよ</div>
   <div class="card" id="manage-list"></div>
   <button class="btn" id="add-btn">＋ 習慣を追加</button>
+
+  <div class="h2">🎨 きせかえ</div>
+  <div class="card" style="padding:14px;">
+    <div class="theme-lbl" style="margin-top:0;">カラー</div>
+    <div class="theme-colors" id="theme-colors"></div>
+    <div class="theme-lbl">背景</div>
+    <div class="theme-bgs" id="theme-bgs"></div>
+  </div>
 
   <div class="h2">💾 データのバックアップ</div>
   <div class="card" style="padding:14px;">
@@ -1184,8 +1201,49 @@ function delExpense(id) {
   renderExpense();
 }
 
+/* ============ きせかえ（テーマ） ============ */
+const THEMES = {
+  green:   { name:'グリーン',   c:'#22c55e', d:'#16a34a' },
+  pink:    { name:'ピンク',     c:'#f472b6', d:'#db2777' },
+  lavender:{ name:'ラベンダー', c:'#a78bfa', d:'#7c3aed' },
+  peach:   { name:'ピーチ',     c:'#fb923c', d:'#ea580c' },
+  mint:    { name:'ミント',     c:'#34d399', d:'#059669' },
+  blue:    { name:'ブルー',     c:'#60a5fa', d:'#2563eb' },
+  rose:    { name:'ローズ',     c:'#fb7185', d:'#e11d48' },
+};
+function getTheme() { return JSON.parse(localStorage.getItem('mr_theme') || '{"accent":"green","bg":"plain"}'); }
+function saveTheme(t) { localStorage.setItem('mr_theme', JSON.stringify(t)); }
+function hexToRgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function applyTheme() {
+  const t = getTheme();
+  const p = THEMES[t.accent] || THEMES.green;
+  const root = document.documentElement;
+  root.style.setProperty('--green', p.c);
+  root.style.setProperty('--green-d', p.d);
+  const [r,g,b] = hexToRgb(p.c);
+  if (t.bg === 'gingham') {
+    const c = `rgba(${r},${g},${b},0.12)`;
+    document.body.style.backgroundColor = '#ffffff';
+    document.body.style.backgroundImage =
+      `repeating-linear-gradient(0deg, ${c} 0 14px, transparent 14px 28px),` +
+      `repeating-linear-gradient(90deg, ${c} 0 14px, transparent 14px 28px)`;
+    document.body.style.backgroundAttachment = 'fixed';
+  } else {
+    document.body.style.backgroundColor = '';
+    document.body.style.backgroundImage = '';
+  }
+}
+function renderThemeUI() {
+  const t = getTheme();
+  document.getElementById('theme-colors').innerHTML = Object.keys(THEMES).map(k =>
+    `<button class="theme-sw ${k===t.accent?'sel':''}" data-accent="${k}" title="${THEMES[k].name}" style="background:${THEMES[k].c}"></button>`).join('');
+  const bgs = [['plain','プレーン'],['gingham','ギンガムチェック']];
+  document.getElementById('theme-bgs').innerHTML = bgs.map(([k,n]) =>
+    `<button class="theme-bg ${k===t.bg?'sel':''}" data-bg="${k}">${n}</button>`).join('');
+}
+
 /* ============ バックアップ / 復元 ============ */
-const BACKUP_KEYS = ['mr_routines','mr_checks','mr_todos','mr_records','mr_expenses','mr_schedule','mr_seeded'];
+const BACKUP_KEYS = ['mr_routines','mr_checks','mr_todos','mr_records','mr_expenses','mr_schedule','mr_theme','mr_seeded'];
 function exportData() {
   const data = {};
   BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = v; });
@@ -1216,7 +1274,7 @@ function doImport() {
 
 /* ============ 共通 ============ */
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderAll(){ renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
+function renderAll(){ applyTheme(); renderThemeUI(); renderToday(); renderTodo(); renderRecord(); renderExpense(); renderCalendar(); renderStats(); renderManage(); }
 
 function switchTab(t) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===t));
@@ -1313,6 +1371,18 @@ document.getElementById('exp-list').onclick = e => {
 };
 document.getElementById('exp-prev').onclick = ()=>{ expView.setMonth(expView.getMonth()-1); renderExpense(); };
 document.getElementById('exp-next').onclick = ()=>{ expView.setMonth(expView.getMonth()+1); renderExpense(); };
+
+// きせかえ
+document.getElementById('theme-colors').onclick = e => {
+  const b = e.target.closest('[data-accent]'); if (!b) return;
+  const t = getTheme(); t.accent = b.dataset.accent; saveTheme(t);
+  applyTheme(); renderThemeUI();
+};
+document.getElementById('theme-bgs').onclick = e => {
+  const b = e.target.closest('[data-bg]'); if (!b) return;
+  const t = getTheme(); t.bg = b.dataset.bg; saveTheme(t);
+  applyTheme(); renderThemeUI();
+};
 
 // バックアップ
 document.getElementById('backup-export').onclick = doExport;
